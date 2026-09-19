@@ -1,0 +1,185 @@
+{
+  "seed": 0,
+  "n_folds": 4,
+  "overlap_groups": [
+    [
+      "rotterdam1",
+      "rotterdam2",
+      "rotterdam3"
+    ],
+    [
+      "suez1",
+      "suez2"
+    ]
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "train": [
+        "portsmouth",
+        "rome",
+        "rotterdam1",
+        "rotterdam2",
+        "rotterdam3",
+        "suez1",
+        "suez2",
+        "suez3",
+        "suez4",
+        "toulon"
+      ],
+      "val": [
+        "panama",
+        "southampton"
+      ],
+      "test": [
+        "brest1",
+        "marseille",
+        "suez5",
+        "suez6"
+      ],
+      "stats": {
+        "train": {
+          "tiles": 10,
+          "ship_polygons": 652,
+          "ship_pixels": 23266
+        },
+        "val": {
+          "tiles": 2,
+          "ship_polygons": 135,
+          "ship_pixels": 4755
+        },
+        "test": {
+          "tiles": 4,
+          "ship_polygons": 266,
+          "ship_pixels": 6319
+        }
+      }
+    },
+    {
+      "fold": 1,
+      "train": [
+        "brest1",
+        "marseille",
+        "panama",
+        "southampton",
+        "suez1",
+        "suez2",
+        "suez3",
+        "suez4",
+        "suez6",
+        "toulon"
+      ],
+      "val": [
+        "rome",
+        "suez5"
+      ],
+      "test": [
+        "portsmouth",
+        "rotterdam1",
+        "rotterdam2",
+        "rotterdam3"
+      ],
+      "stats": {
+        "train": {
+          "tiles": 10,
+          "ship_polygons": 672,
+          "ship_pixels": 14644
+        },
+        "val": {
+          "tiles": 2,
+          "ship_polygons": 134,
+          "ship_pixels": 1820
+        },
+        "test": {
+          "tiles": 4,
+          "ship_polygons": 247,
+          "ship_pixels": 17876
+        }
+      }
+    },
+    {
+      "fold": 2,
+      "train": [
+        "marseille",
+        "panama",
+        "portsmouth",
+        "rome",
+        "rotterdam1",
+        "rotterdam2",
+        "rotterdam3",
+        "southampton",
+        "suez5",
+        "suez6"
+      ],
+      "val": [
+        "brest1",
+        "suez4"
+      ],
+      "test": [
+        "suez1",
+        "suez2",
+        "suez3",
+        "toulon"
+      ],
+      "stats": {
+        "train": {
+          "tiles": 10,
+          "ship_polygons": 621,
+          "ship_pixels": 27706
+        },
+        "val": {
+          "tiles": 2,
+          "ship_polygons": 154,
+          "ship_pixels": 2700
+        },
+        "test": {
+          "tiles": 4,
+          "ship_polygons": 278,
+          "ship_pixels": 3934
+        }
+      }
+    },
+    {
+      "fold": 3,
+      "train": [
+        "brest1",
+        "rotterdam1",
+        "rotterdam2",
+        "rotterdam3",
+        "suez1",
+        "suez2",
+        "suez3",
+        "suez5",
+        "suez6",
+        "toulon"
+      ],
+      "val": [
+        "marseille",
+        "portsmouth"
+      ],
+      "test": [
+        "panama",
+        "rome",
+        "southampton",
+        "suez4"
+      ],
+      "stats": {
+        "train": {
+          "tiles": 10,
+          "ship_polygons": 683,
+          "ship_pixels": 25193
+        },
+        "val": {
+          "tiles": 2,
+          "ship_polygons": 108,
+          "ship_pixels": 2936
+        },
+        "test": {
+          "tiles": 4,
+          "ship_polygons": 262,
+          "ship_pixels": 6211
+        }
+      }
+    }
+  ]
+}

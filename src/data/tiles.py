@@ -1,4 +1,5 @@
 """Readers for the raw S2-SHIPS download (data/S2-SHIPS/S2SHIPS)."""
+import json
 import pickletools
 import re
 from pathlib import Path
@@ -56,6 +57,18 @@ def load_pickled_npy(path: Path) -> dict:
         if op.name == "GLOBAL" and arg not in _ALLOWED_PICKLE_GLOBALS:
             raise ValueError(f"{path}: refusing to unpickle, unexpected global {arg!r}")
     return np.load(path, allow_pickle=True).item()
+
+
+def load_ship_centroids(raw_dir: Path) -> dict[str, np.ndarray]:
+    """Per tile, an (n, 2) float array of (x, y) pixel centroids, one row per COCO segmentation
+    polygon (the ship instances, 1,053 in total). Same pixel coordinates as the imagery."""
+    coco = json.loads((raw_dir / "coco-s2ships.json").read_text())
+    tile_of = {im["id"]: re.sub(r"_rgb\.png$", "", im["file_name"]) for im in coco["images"]}
+    pts: dict[str, list] = {t: [] for t in tile_of.values()}
+    for ann in coco["annotations"]:
+        for seg in ann["segmentation"]:
+            pts[tile_of[ann["image_id"]]].append(np.asarray(seg, dtype=float).reshape(-1, 2).mean(axis=0))
+    return {t: np.asarray(v, dtype=float).reshape(-1, 2) for t, v in pts.items()}
 
 
 def load_water_mask(water_tif: Path, reference_band_tif: Path) -> np.ndarray:
