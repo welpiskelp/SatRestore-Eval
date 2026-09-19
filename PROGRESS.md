@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Realistic Noise
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-19
 
 ---
 
@@ -10,8 +10,10 @@
 
 | Phase | Status |
 |---|---|
-| 1. Local setup, EOTDL download, repo scaffold, audit | DONE (committed locally, not yet pushed) |
-| 2. Patch preprocessing (128×128, stride 64) | NOT STARTED |
+| 1. Local setup, EOTDL download, repo scaffold, audit | DONE (committed locally; GitHub push blocked on authentication) |
+| 2a. Tile preparation (pickle-free canonical arrays, aligned masks) | DONE (not yet committed) |
+| 2b. Overlap-aware tile-level fold splits (4 folds, 10/2/4) | NOT STARTED |
+| 2c. Patch index (128×128, stride 64) with per-patch ship/water stats | NOT STARTED |
 | 3. Degradation engine (Gaussian / Poisson-Gaussian, SNR sampling) | NOT STARTED |
 | 4. SQLite reference DB | NOT STARTED |
 | 5. Models (NAFNet+FiLM+cross-band, baselines) | NOT STARTED |
@@ -57,19 +59,42 @@ Tiles: `brest1, marseille, panama, portsmouth, rome, rotterdam1, rotterdam2, rot
 **Notable finding:** the COCO file has 143 "annotation records," but each record bundles multiple ship polygons in its `segmentation` list. Counting individual polygons gives **1,053** — which matches the project doc's "~1,053 ship instances" exactly. So "ship instance" = segmentation polygon count, not annotation-record count. Full per-tile breakdown is in `reports/audit_report.json`.
 
 ### 6. Git
-- Repo initialized, `origin` set to the GitHub repo, one commit made locally on `Main` containing all of the above (code/config/report only — **not pushed yet**, and never includes `data/`).
+- Repo initialized, `origin` set to the GitHub repo, commits made locally on `Main` (code/config/report only — `data/` is never included).
+- A push was attempted and failed: `Authentication failed` (no stored GitHub credentials; the `gh` CLI is not installed). **Nothing has been pushed yet.** GitHub account: `abhip-10`. Needs the user to set up credentials (e.g. Git Credential Manager browser login, or a personal access token entered by the user, not pasted into chat).
+
+### 7. Tile preparation (`scripts/prepare_tiles.py`, `src/data/`)
+Converts the raw download into compact, pickle-free arrays under `data/processed/` (664MB total, git-ignored; was 2.6GB of raw npy):
+- `tiles/<tile>_image.npy` — uint16, shape (12, 938, 1783), channels in canonical band order.
+- `tiles/<tile>_ship.npy` — uint8 ship-pixel mask. `tiles/<tile>_water.npy` — uint8 water mask, aligned to the imagery grid.
+- `tiles_meta.json` — per tile: date, shape, CRS, bounds, ship pixel count, water fraction, fraction of ship pixels on water.
+
+Shared code added: `src/data/bands.py` (single source of truth for band order, native-10m band list) and `src/data/tiles.py` (readers, including a guarded pickle loader). `scripts/audit.py` now imports these instead of duplicating them; re-run confirmed identical audit results (16/16 tiles, 1,053 polygons).
+
+### 8. Findings that affect later design
+- **`dataset_npy/*.npy` are pickled dicts**, not plain masks: `data` = (938, 1783, 12) float64 raw digital numbers (imagery), `label` = (938, 1783, 1) binary ship mask (0/1). Unpickling can execute code, so `load_pickled_npy` disassembles the pickle first and refuses anything except numpy array internals (all 16 files passed). The pickle is touched only once, by `prepare_tiles.py`; everything downstream reads plain arrays.
+- **Band order mismatch:** the npy channel order is `B01,B02,B03,B04,B05,B06,B07,B08,B09,B11,B12,B8A` (B8A last). The project's canonical order is Sentinel-2 wavelength order (`B8A` after `B08`). `prepare_tiles.py` reorders and verifies every channel of every tile bit-for-bit against the per-band GeoTIFFs. Always index bands by name via `src/data/bands.py`.
+- **Water masks are on a different grid:** 938×1784 at 10.000 m versus imagery 938×1783 at 10.0048 m (same origin and extent). Resampled with nearest-neighbour onto the imagery grid rather than cropped, because a crop would drift up to about 0.9 pixel at the right edge.
+- **Tiles overlap spatially (threat to tile-level splits):** `suez1`/`suez2` overlap by 93.6% (near-duplicate scenes from the same day); `rotterdam1`/`rotterdam2` by 6.9%; `rotterdam2`/`rotterdam3` by 13.9%. The other tiles are independent. Overlapping tiles must never sit on opposite sides of a train/val/test split, or the test set leaks.
+- **Ship distribution is very uneven:** `toulon` has 263 of the 1,053 ship polygons; `suez1`–`suez4` have 5–8 each. `rotterdam1` has the most ship pixels (10,957). Folds should be balanced on ship counts, not just tile counts.
+- **Ship pixels mostly lie on the water mask** (94–100% for most tiles) but less for `rome` (68%) and `marseille` (81%), likely ships in port. Relevant when interpreting ship-vs-water metrics (E5).
+- Water fraction varies widely (2% for `suez1`/`suez2` up to 84% for `portsmouth`).
 
 ---
 
 ## Next steps
 
-1. **Patch preprocessing** — cut all 16 tiles into 128×128 patches at stride 64 (per-tile, so the 4-fold tile-level CV split stays clean). Needs its own scoping pass (file layout for patches, how splits are recorded, where patches live on disk) before writing code.
-2. **Degradation engine** — Gaussian + Poisson-Gaussian noise, per-band SNR = 10·log10(P_b/σ_b²), continuous 5–30dB sampling for training / fixed 0–30dB (7 levels) for test.
-3. **SQLite reference DB** (`db/`) — tables for tiles, degradations, runs, per-tile/per-region metrics. `reports/audit_report.json` is a natural seed for the `tiles` table.
-4. **Models** — NAFNet backbone + FiLM SNR conditioning + cross-band attention + ship-weighted loss; baselines (FFDNet-style, SwinIR, DnCNN, BM3D).
-5. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) — the phase that actually needs GPU.
-6. **Kaggle GPU setup + 3-person split** — deferred until there's real training code to run; see earlier discussion in this conversation for the memory-fit and quota-splitting analysis.
+1. **Fold splits (2b)** — build a seeded, overlap-aware 4-fold assignment (10 train / 2 val / 4 test tiles per fold, each tile tested exactly once), keeping `{suez1, suez2}` and `{rotterdam1, rotterdam2, rotterdam3}` together within a fold, and balancing ship counts across test sets. Save to `configs/splits.json` so it is versioned and reviewable.
+2. **Patch index (2c)** — 128×128 patches at stride 64 over each tile (13 × 26 = 338 patches per tile, 5,408 total; the last 42 rows and 55 columns are not covered unless edge-aligned patches are added — decision needed). Store as an index (tile, row, col) plus per-patch ship pixel count, water fraction and nodata fraction, and slice patches from the compact tile arrays on the fly rather than duplicating imagery on disk (about 2.1GB materialized versus 0.64GB of tiles).
+3. **Degradation engine** — Gaussian + Poisson-Gaussian noise, per-band SNR = 10·log10(P_b/σ_b²), continuous 5–30dB sampling for training / fixed 0–30dB (7 levels) for test.
+4. **SQLite reference DB** (`db/`) — tables for tiles, degradations, runs, per-tile/per-region metrics. `data/processed/tiles_meta.json` and `reports/audit_report.json` are natural seeds for the `tiles` table.
+5. **Models** — NAFNet backbone + FiLM SNR conditioning + cross-band attention + ship-weighted loss; baselines (FFDNet-style, SwinIR, DnCNN, BM3D).
+6. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) — the phase that actually needs GPU.
+7. **Kaggle GPU setup + 3-person split** — deferred until there's real training code to run; see earlier discussion in this conversation for the memory-fit and quota-splitting analysis.
 
 ## Open questions / things to verify later
-- Whether to push the current commit to GitHub now or keep accumulating locally first (user's call).
+- GitHub push: blocked on authentication (see step 6). User to decide how to authenticate; nothing has been pushed.
+- Edge coverage for patches: with 128×128 at stride 64, the last 42 rows and 55 columns of every tile are not covered. Either accept that, or add edge-aligned patches (more coverage, but overlap unevenly). Not yet decided.
+- Tile overlap policy: keep overlapping tiles in the same split (planned), versus additionally masking out the overlapping strips. The `rotterdam` overlaps are small (7% and 14%), the `suez1`/`suez2` overlap is nearly total.
+- Ship-mask definition for the ship-aware loss: pixel mask (`label`, 0/1) from the npy versus rasterised COCO polygons. The pixel mask is what is prepared now; the two should be reconciled when the loss is built.
+- Ship-on-water fractions for `rome` (68%) and `marseille` (81%) are low; worth a visual check before relying on the water mask for E5 metrics.
 - Exact definition to use for "ship instance" in later ship-aware loss/eval work — segmentation-polygon count (1,053) vs. annotation-record count (143) — resolved here as polygon count, matching the doc, but worth double-checking against how the ship-aware loss actually consumes masks once that's built.

@@ -19,27 +19,18 @@ rasterio spot-check) before writing this:
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
 import rasterio
 
-BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.data.bands import BANDS
+from src.data.tiles import discover_tiles, find_band_file
+
 EXPECTED_SHAPE = (938, 1783)
 EXPECTED_DTYPE = "uint16"
-
-
-def discover_tiles(data_dir: Path) -> list[str]:
-    tif_dir = data_dir / "dataset_tif"
-    return sorted(p.name for p in tif_dir.iterdir() if p.is_dir())
-
-
-def find_band_file(tile_dir: Path, band: str) -> Path | None:
-    matches = [
-        f for f in tile_dir.glob("*.tiff")
-        if re.search(rf"_{band}(_|\()", f.name) and "Raw" in f.name
-    ]
-    return matches[0] if matches else None
 
 
 def estimate_nodata_fraction(arr: np.ndarray) -> float:
