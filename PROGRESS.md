@@ -10,7 +10,7 @@
 
 | Phase | Status |
 |---|---|
-| 1. Local setup, EOTDL download, repo scaffold, audit | DONE (committed locally; GitHub push blocked on authentication) |
+| 1. Local setup, EOTDL download, repo scaffold, audit | DONE (committed and pushed to GitHub) |
 | 2a. Tile preparation (pickle-free canonical arrays, aligned masks) | DONE (committed locally) |
 | 2b. Overlap-aware tile-level fold splits (4 folds, 10/2/4) | DONE (not yet committed) |
 | 2c. Patch index (128×128, stride 64) with per-patch ship/water stats | DONE (not yet committed); edge-aligned patches added, see step 11 |
@@ -59,8 +59,9 @@ Tiles: `brest1, marseille, panama, portsmouth, rome, rotterdam1, rotterdam2, rot
 **Notable finding:** the COCO file has 143 "annotation records," but each record bundles multiple ship polygons in its `segmentation` list. Counting individual polygons gives **1,053** — which matches the project doc's "~1,053 ship instances" exactly. So "ship instance" = segmentation polygon count, not annotation-record count. Full per-tile breakdown is in `reports/audit_report.json`.
 
 ### 6. Git
-- Repo initialized, `origin` set to the GitHub repo, commits made locally on `Main` (code/config/report only — `data/` is never included).
-- A push was attempted and failed: `Authentication failed` (no stored GitHub credentials; the `gh` CLI is not installed). **Nothing has been pushed yet.** GitHub account: `abhip-10`. Needs the user to set up credentials (e.g. Git Credential Manager browser login, or a personal access token entered by the user, not pasted into chat).
+- Repo initialized, `origin` set to the GitHub repo, commits on `Main` (code/config/report only — `data/` is never included).
+- **Pushed to GitHub on 2026-09-19** (`origin/Main`, account `abhip-10`). An earlier push attempt failed with `Authentication failed`; the later one authenticated. The push was then rejected once because the remote already held the stub `README.md` commit (`b378cf2`, unrelated to our `git init` history), so it was merged in with `--allow-unrelated-histories -X ours`, keeping our README (the remote stub was a 22-byte title). No force-push was used. The GitHub repo is about 57 KB across 26 files; no imagery or arrays are in it.
+- Workflow from here: commit locally, then `git push`. Keep `data/` and `.venv/` ignored.
 
 ### 7. Tile preparation (`scripts/prepare_tiles.py`, `src/data/`)
 Converts the raw download into compact, pickle-free arrays under `data/processed/` (664MB total, git-ignored; was 2.6GB of raw npy):
@@ -128,7 +129,6 @@ Overall: nothing blocks the paper. Two items must be handled in later steps: `P_
 5. **Kaggle GPU setup + 3-person split** — deferred until there's real training code to run; see earlier discussion in this conversation for the memory-fit and quota-splitting analysis.
 
 ## Open questions / things to verify later
-- GitHub push: blocked on authentication (see step 6). User to decide how to authenticate; nothing has been pushed.
 - Tile overlap policy: overlapping tiles are kept in the same split (implemented). Whether to additionally mask out the overlapping strips is open; the `rotterdam` overlaps are small (7% and 14%), the `suez1`/`suez2` overlap is nearly total. Note that within a split, duplicated content between `suez1` and `suez2` is still counted twice in that split's statistics.
 - Fold 1's test set is dominated by `rotterdam1` (49% of its test polygons, 61% of its ship pixels). Report per-tile results and not only per-fold averages (see step 10).
 - Per-instance counting rule for evaluation: each ship appears in about 3.75 overlapping patches, so the assignment of a ship to a single patch (for E5 and bootstrap CIs) must be defined before evaluation code is written (see step 11).
