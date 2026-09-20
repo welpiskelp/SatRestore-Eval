@@ -1,6 +1,6 @@
 # SatRestore-Eval
 
-SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Realistic Noise.
+SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation.
 
 ## Phase 1: data acquisition + audit
 
