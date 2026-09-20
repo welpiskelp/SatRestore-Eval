@@ -1,3 +1,5 @@
 eotdl==2026.6.29
 rasterio==1.5.1
 numpy==2.5.3
+
+# torch is installed separately: the CPU build locally (pip install torch --index-url https://download.pytorch.org/whl/cpu), preinstalled with CUDA on Kaggle.
