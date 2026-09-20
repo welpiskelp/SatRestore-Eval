@@ -10,14 +10,14 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.data.bands import BANDS, band_index
+from src.data.bands import BANDS, CORRELATION_SIGMA_PX, band_index
 from src.data.patches import SATURATED
-from src.degrade.noise import NOISE_TYPES, degrade, degradation_seed
+from src.degrade.noise import NOISE_TYPES, TEST_SNR_LEVELS, degrade, degradation_seed, test_noisy_tile
 from src.degrade.stats import load_signal_stats
 
 TILES = ("toulon", "panama", "rotterdam3")  # clean, heavily saturated, has zero pixels
-LEVELS = (0.0, 10.0, 30.0)
-TOL_DB = 0.1
+LEVELS = (0.0, 10.0, 40.0)
+TOL_DB = {"gaussian": 0.1, "poisson_gaussian": 0.1, "correlated_gaussian": 0.3}  # correlated noise has fewer effective samples
 
 
 def realised_snr_db(clean, noisy, power):
@@ -38,7 +38,7 @@ def main():
     stats = load_signal_stats(processed / "signal_stats.json")
     failures = []
 
-    print(f"{'tile':11s} {'noise':17s} {'target dB':>9s} {'worst |error| dB':>17s}  worst band")
+    print(f"{'tile':11s} {'noise':19s} {'target dB':>9s} {'worst |error| dB':>17s}  worst band")
     for tile in TILES:
         clean = np.load(processed / "tiles" / f"{tile}_image.npy")
         s = stats[tile]
@@ -47,8 +47,8 @@ def main():
                 noisy, _ = degrade(clean, s["power"], s["mean"], snr, noise_type, seed=123)
                 err = np.abs(realised_snr_db(clean, noisy, s["power"]) - snr)
                 worst = int(np.argmax(err))
-                print(f"{tile:11s} {noise_type:17s} {snr:9.1f} {err[worst]:17.4f}  {BANDS[worst]}")
-                if err[worst] > TOL_DB:
+                print(f"{tile:11s} {noise_type:19s} {snr:9.1f} {err[worst]:17.4f}  {BANDS[worst]}")
+                if err[worst] > TOL_DB[noise_type]:
                     failures.append(f"{tile} {noise_type} {snr} dB: error {err[worst]:.3f} dB in {BANDS[worst]}")
 
     # Signal dependence: Poisson-Gaussian noise power must grow with signal, Gaussian must not.
@@ -60,15 +60,43 @@ def main():
     lo = ok & (x <= np.median(x[ok]))
     hi = ok & (x > np.median(x[ok]))
     print("\nnoise power, bright half / dark half of B08 (toulon, 10 dB):")
-    for noise_type, want_high in (("gaussian", False), ("poisson_gaussian", True)):
+    for noise_type, want_high in (("gaussian", False), ("poisson_gaussian", True), ("correlated_gaussian", False)):
         noisy, _ = degrade(clean, s["power"], s["mean"], 10.0, noise_type, seed=1)
         d = noisy[b].astype(np.float64) - x
         ratio = np.mean(d[hi] ** 2) / np.mean(d[lo] ** 2)
-        print(f"  {noise_type:17s} ratio {ratio:6.2f}")
+        print(f"  {noise_type:19s} ratio {ratio:6.2f}")
         if want_high and ratio < 1.5:
             failures.append(f"poisson_gaussian noise not signal dependent (ratio {ratio:.2f})")
         if not want_high and not 0.9 < ratio < 1.1:
-            failures.append(f"gaussian noise not signal independent (ratio {ratio:.2f})")
+            failures.append(f"{noise_type} noise not signal independent (ratio {ratio:.2f})")
+
+    # Spatial correlation: lag-1 autocorrelation of the added noise, per band, for the three types.
+    # For a Gaussian filter of sd s applied to white noise it is exp(-1/(4 s^2)): 0 for native bands
+    # (s=0), 0.78 for 20 m bands (s=1), 0.97 for 60 m bands (s=3).
+    print("\nlag-1 horizontal autocorrelation of the added noise (toulon, 10 dB):")
+    sd = np.array(CORRELATION_SIGMA_PX)
+    for noise_type in ("gaussian", "correlated_gaussian"):
+        noisy, _ = degrade(clean, s["power"], s["mean"], 10.0, noise_type, seed=2)
+        n = noisy.astype(np.float64) - clean.astype(np.float64)
+        rho = np.array([np.mean(n[i][:, 1:] * n[i][:, :-1]) / np.mean(n[i] ** 2) for i in range(n.shape[0])])
+        print(f"  {noise_type:19s}", " ".join(f"{BANDS[i]}={rho[i]:.2f}" for i in range(len(BANDS))))
+        expected = np.zeros(len(BANDS))
+        if noise_type == "correlated_gaussian":
+            expected[sd > 0] = np.exp(-1 / (4 * sd[sd > 0] ** 2))
+        if np.max(np.abs(rho - expected)) > 0.05:
+            failures.append(f"{noise_type}: lag-1 autocorrelation off by {np.max(np.abs(rho - expected)):.3f}")
+
+    # Per-tile fixed test noise: identical across calls, distinct across noise types and SNR levels.
+    t1, p1 = test_noisy_tile(clean, s["power"], s["mean"], "toulon", 20.0, "gaussian")
+    t2, _ = test_noisy_tile(clean, s["power"], s["mean"], "toulon", 20.0, "gaussian")
+    t3, _ = test_noisy_tile(clean, s["power"], s["mean"], "toulon", 25.0, "gaussian")
+    if not np.array_equal(t1, t2):
+        failures.append("test_noisy_tile not deterministic")
+    if p1["seed"] != degradation_seed(0, "toulon", 2000) or np.array_equal(t1, t3):
+        failures.append("test_noisy_tile seed or level separation wrong")
+    if len(TEST_SNR_LEVELS) != 9 or TEST_SNR_LEVELS[-1] != 40.0:
+        failures.append("test levels should run 0..40 dB in 9 steps")
+    print("\nper-tile test noise checks done")
 
     # Determinism and seeding.
     patch = clean[:, :128, :128]
@@ -93,7 +121,7 @@ def main():
         for f in failures:
             print("  -", f)
         sys.exit(1)
-    print(f"\nall checks passed (realised SNR within {TOL_DB} dB of target)")
+    print("\nall checks passed (realised SNR within 0.1 dB of target, 0.3 dB for correlated noise)")
 
 
 if __name__ == "__main__":

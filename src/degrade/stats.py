@@ -12,7 +12,7 @@ def band_signal_stats(image) -> dict:
     """image: (C, H, W) uint16 tile. Per band, over valid pixels only (not 0 and not saturated):
     power = mean square (P_b), mean = mean signal (sets the Poisson gain), valid_fraction.
     power_naive is the mean square over all pixels, kept only to show what the exclusion changes."""
-    out = {"power": [], "mean": [], "valid_fraction": [], "power_naive": []}
+    out = {"power": [], "mean": [], "valid_fraction": [], "power_naive": [], "peak": []}
     for i in range(image.shape[0]):
         x = np.asarray(image[i]).astype(np.float64)
         ok = (x != 0) & (x != SATURATED)
@@ -21,6 +21,7 @@ def band_signal_stats(image) -> dict:
         out["mean"].append(float(v.mean()))
         out["valid_fraction"].append(float(ok.mean()))
         out["power_naive"].append(float(np.mean(x * x)))
+        out["peak"].append(float(np.percentile(v, 99.9)))  # robust PSNR peak (a fixed 65535 would inflate PSNR)
     return out
 
 
