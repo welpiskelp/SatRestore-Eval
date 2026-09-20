@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation (reworded from "Realistic Noise", see step 15)
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-09-19
+**Last updated:** 2026-09-20
 
 ---
 
@@ -11,7 +11,7 @@
 | Phase | Status |
 |---|---|
 | 1. Local setup, EOTDL download, repo scaffold, audit | DONE (committed and pushed to GitHub) |
-| 2a. Tile preparation (pickle-free canonical arrays, aligned masks) | DONE (committed locally) |
+| 2a. Tile preparation (pickle-free canonical arrays, aligned masks) | DONE (committed and pushed) |
 | 2b. Overlap-aware tile-level fold splits (4 folds, 10/2/4) | DONE (committed and pushed) |
 | 2c. Patch index (128×128, stride 64) with per-patch ship/water stats | DONE (committed and pushed); edge-aligned patches added, see step 11 |
 | 3. Degradation engine (Gaussian / Poisson-Gaussian / correlated, SNR 0-40 dB, per-tile test noise) | DONE (committed and pushed); verified on real tiles, see steps 12 and 15 |
@@ -19,7 +19,7 @@
 | 4b. Frozen protocol, statistics utilities, ship contrast-to-noise | DONE (committed and pushed); see step 15 |
 | 4c. Evaluation harness (metrics, regions, per-ship metrics, results DBs, classical baselines) | DONE (committed and pushed); see step 17 |
 | 5a. Dataset loader, model (NAFNet + FiLM + cross-band attention), loss, resumable training loop, tile prediction | DONE locally on CPU (committed and pushed); see step 18 |
-| 5. Models (NAFNet+FiLM+cross-band, baselines) | NOT STARTED |
+| 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR), parameter-matched control, evaluation driver | NOT STARTED (the NAFNet+FiLM+cross-band model itself is done, see 5a) |
 | 6. Training / experiments / ablations | NOT STARTED |
 | 7. Kaggle GPU setup + 3-person split | NOT STARTED (deferred until training code exists) |
 
@@ -63,7 +63,7 @@ Tiles: `brest1, marseille, panama, portsmouth, rome, rotterdam1, rotterdam2, rot
 
 ### 6. Git
 - Repo initialized, `origin` set to the GitHub repo, commits on `Main` (code/config/report only — `data/` is never included).
-- **Pushed to GitHub on 2026-09-19** to https://github.com/welpiskelp/SatRestore-Eval (branch `Main`, public repo). The repo is owned by the account `welpiskelp`; `abhip-10` and `AthSri0507` were added as collaborators (per GitHub's public activity feed). **The pushing account is verified as `abhip-10`** (2026-09-20): Git Credential Manager holds the `abhip-10` login for github.com, GitHub's public activity lists both pushes with actor `abhip-10`, and a dry-run push authenticated successfully. An earlier push attempt on 2026-09-19 failed with `Authentication failed` before the later one authenticated. Commits are authored as the machine's git identity (`Abhinav Potharaju`, an rvce.edu.in address), which GitHub maps to `abhip-10` (it appears as a contributor). The user reported that signing in to github.com in a browser did not work; that is separate from git's stored login and needs the user to recover the account (password reset, authenticator or recovery code, or Google sign-in), it does not affect pushing. The push was then rejected once because the remote already held the stub `README.md` commit (`b378cf2`, unrelated to our `git init` history), so it was merged in with `--allow-unrelated-histories -X ours`, keeping our README (the remote stub was a 22-byte title). No force-push was used. The GitHub repo is about 57 KB across 26 files; no imagery or arrays are in it.
+- **Pushed to GitHub on 2026-09-19** to https://github.com/welpiskelp/SatRestore-Eval (branch `Main`, public repo). The repo is owned by the account `welpiskelp`; `abhip-10` and `AthSri0507` were added as collaborators (per GitHub's public activity feed). **The pushing account is verified as `abhip-10`** (2026-09-20): Git Credential Manager holds the `abhip-10` login for github.com, GitHub's public activity lists both pushes with actor `abhip-10`, and a dry-run push authenticated successfully. An earlier push attempt on 2026-09-19 failed with `Authentication failed` before the later one authenticated. Commits are authored as the machine's git identity (`Abhinav Potharaju`, an rvce.edu.in address), which GitHub maps to `abhip-10` (it appears as a contributor). The user reported that signing in to github.com in a browser did not work; that is separate from git's stored login and needs the user to recover the account (password reset, authenticator or recovery code, or Google sign-in), it does not affect pushing. The push was then rejected once because the remote already held the stub `README.md` commit (`b378cf2`, unrelated to our `git init` history), so it was merged in with `--allow-unrelated-histories -X ours`, keeping our README (the remote stub was a 22-byte title). No force-push was used. The GitHub repo holds only code, configs and reports (52 tracked files as of 2026-09-20); no imagery or arrays are in it.
 - Workflow from here: commit locally, then `git push`. Keep `data/` and `.venv/` ignored.
 
 ### 7. Tile preparation (`scripts/prepare_tiles.py`, `src/data/`)
