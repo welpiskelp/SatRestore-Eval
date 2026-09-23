@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation (reworded from "Realistic Noise", see step 15)
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-09-23
+**Last updated:** 2026-09-23 (step 21)
 
 ---
 
@@ -21,6 +21,7 @@
 | 5a. Dataset loader, model (NAFNet + FiLM + cross-band attention), loss, resumable training loop, tile prediction | DONE locally on CPU (committed and pushed); see step 18 |
 | 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR-lite), parameter-matched controls, evaluation driver | DONE locally on CPU (committed and pushed); see step 19. BM3D reference still to do |
 | 6. Kaggle GPU setup, dataset upload, pilot run | DONE; see step 20. `run_full_fold0.json` is locked |
+| 6b. Full fold-0 training run + evaluation (medium model, gaussian noise, 100 epochs) | DONE on Kaggle GPU; see step 21. Results in `db/results_pilot_full.sqlite` |
 | 7. Training / experiments / ablations | NOT STARTED |
 | 8. 3-person split for the full experiment matrix | NOT STARTED |
 
@@ -218,14 +219,31 @@ PyTorch 2.14 CPU build installed in the venv (not pinned in `requirements.txt`; 
 - **`configs/run_full_fold0.json` locked:** removed the `PROVISIONAL` status; added `max_hours: 8.5` as a safety stop (resumable via `last.pt`). At 73 s/epoch, 100 epochs ≈ 2 hours on one T4, well inside Kaggle's 9-hour session cap.
 - **Not yet done:** the loss-weight sweep (A7) and per-baseline tuning budget stay open; the full training run for `run_full_fold0.json` itself has not been launched yet (the pilot was only 3 epochs).
 
+### 21. Full fold-0 training run and evaluation on Kaggle GPU (2026-09-23)
+- **Kernel** `abhinavp10/satrestore-train-full-fold0` (`kaggle/train_full.py`, `kaggle/kernel-metadata-train-full.json`): clones the repo, stages the dataset, runs `configs/run_full_fold0.json` (medium model, 100 epochs, gaussian noise, fold 0), then evaluates the best checkpoint.
+- **Training succeeded in full:** 100 epochs on one T4, all `metrics.jsonl` lines finite, no instability; loss fell smoothly and flattened after the LR schedule decayed (best val L1 0.008414 at epoch 87, final val L1 0.008419). About 71–72 s/epoch steady state, matching the pilot; total run 7207 s (~2h).
+- **Evaluation crashed the first time:** `scripts/evaluate_run.py` needs `coco-s2ships.json` for ship centroids, which was never uploaded to the Kaggle dataset (only `data/processed/` was). Training and `best.pt` were unaffected (saved before the eval step ran). Fixed two ways: (1) `kaggle/train_full.py` now copies `coco-s2ships.json` into `data/S2-SHIPS/S2SHIPS/` before evaluating; (2) the Kaggle dataset `abhinavp10/s2ships-processed` was updated to a second version that includes `coco-s2ships.json`, so future kernels do not depend on the code-side copy step alone.
+- **Recovered without retraining:** `best.pt` and `metrics.jsonl` were pulled from the completed (but eval-failed) kernel's output via `kaggle kernels output`, copied into `runs/full_medium_fold0_seed0/` locally, and evaluated locally on CPU with `scripts/evaluate_run.py` against `db/results_pilot_full.sqlite` — no GPU time wasted.
+- **Local CPU evaluation was interrupted once:** the harness killed the background eval process because the machine was low on memory (not a code bug). 81 of 108 conditions were already committed to the results DB at that point; re-running `evaluate_run.py` skipped them (by design, see step 19) and finished the remaining 27.
+- **Result: 108/108 conditions evaluated** (4 test tiles × 3 noise types × 9 SNR levels), stored in `db/results_pilot_full.sqlite`. Headline (region = all, averaged over tiles):
+
+  | SNR | gaussian (trained on) PSNR / SSIM | poisson_gaussian (unseen) PSNR / SSIM | correlated_gaussian (unseen) PSNR / SSIM |
+  |---|---|---|---|
+  | 0 dB | 31.0 / 0.81 | 30.6 / 0.82 | 22.1 / 0.39 |
+  | 20 dB | 42.2 / 0.98 | 41.6 / 0.98 | 37.4 / 0.95 |
+  | 40 dB | 52.4 / 0.998 | 52.2 / 0.998 | 49.9 / 0.996 |
+
+  Ship-region PSNR runs about 5–7 dB below all-region at the same condition, as expected. The model, trained only on `gaussian` noise, generalises almost perfectly to `poisson_gaussian` and degrades more on `correlated_gaussian` (a genuinely different, spatially-correlated noise structure it never saw) — a usable cross-noise-type generalisation result for the paper, not a failure.
+- **Conclusion:** the full pipeline (dataset upload → GPU training → checkpoint recovery → CPU evaluation → results DB) is proven end to end on real data, once, outside the pilot's short 3-epoch smoke run.
+- **Kaggle account note:** the account/token used for the dataset upload and this run is temporary (the user's own description). Decide before the full experiment matrix whether results need to move to a permanent account.
+
 ---
 
 ## Next steps
 
 1. **BM3D reference** (optional, CPU) on a subset of tiles; needs `pip install bm3d` and is too slow for all conditions.
-2. **Launch the full fold-0 training run** on Kaggle using the now-locked `configs/run_full_fold0.json` (~2 hours on one T4).
-3. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) split across the three accounts, using unique run names and per-person results databases. Use `scripts/train.py` then `scripts/evaluate_run.py` per run.
-4. The Kaggle account/token used for the dataset upload and pilot is temporary (user's words) — decide before the full experiment matrix whether results need to move to a permanent account.
+2. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) split across the three accounts, using unique run names and per-person results databases. Use `scripts/train.py` then `scripts/evaluate_run.py` per run; `kaggle/train_full.py` is a working template kernel to copy per experiment.
+3. Resolve the temporary-Kaggle-account question (step 21) before spreading the full experiment matrix across accounts.
 
 ## Open questions / things to verify later
 - Tile overlap policy: overlapping tiles are kept in the same split (implemented). Whether to additionally mask out the overlapping strips is open; the `rotterdam` overlaps are small (7% and 14%), the `suez1`/`suez2` overlap is nearly total. Note that within a split, duplicated content between `suez1` and `suez2` is still counted twice in that split's statistics.
