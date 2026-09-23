@@ -19,7 +19,7 @@
 | 4b. Frozen protocol, statistics utilities, ship contrast-to-noise | DONE (committed and pushed); see step 15 |
 | 4c. Evaluation harness (metrics, regions, per-ship metrics, results DBs, classical baselines) | DONE (committed and pushed); see step 17 |
 | 5a. Dataset loader, model (NAFNet + FiLM + cross-band attention), loss, resumable training loop, tile prediction | DONE locally on CPU (committed and pushed); see step 18 |
-| 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR), parameter-matched control, evaluation driver | NOT STARTED (the NAFNet+FiLM+cross-band model itself is done, see 5a) |
+| 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR-lite), parameter-matched controls, evaluation driver | DONE locally on CPU (not yet committed); see step 19. BM3D reference still to do |
 | 6. Training / experiments / ablations | NOT STARTED |
 | 7. Kaggle GPU setup + 3-person split | NOT STARTED (deferred until training code exists) |
 
@@ -197,16 +197,25 @@ PyTorch 2.14 CPU build installed in the venv (not pinned in `requirements.txt`; 
 - **Smoke test** (`scripts/smoke_test.py`, `--quick` skips the slow parts): on CPU a tiny model trains, and after 12 epochs on 160 patches beats the identity baseline on the fixed validation noise (val L1 0.05946 → 0.05250). About 13–29 s per epoch on 96 patches for the tiny model; a full-tile prediction takes about 24 s.
 - **Provisional settings:** `configs/run_full_fold0.json` (medium, 100 epochs, lr 4e-4, batch 16, λ_ship 1.0, λ_sam 0.1) is marked provisional; the loss weights are placeholders swept in A7, and everything else is fixed after the Kaggle pilot.
 - **Found and fixed while testing:** an interruption test that changed `epochs` changed the cosine schedule and looked like a resume bug (max weight difference 1.3e-2); the test was wrong, and a proper stop mechanism was added.
-- **Not yet done:** baseline architectures (FFDNet-style, DnCNN, SwinIR), a parameter-matched control, the checkpoint-to-results evaluation driver, and any GPU timing.
+- **Not yet done at this point:** baseline architectures, a parameter-matched control, the evaluation driver (all done in step 19) and any GPU timing (still open).
+
+### 19. Baseline architectures, parameter matching and the evaluation driver (2026-09-20, local CPU)
+- **Baselines** (`src/models/baselines.py`, `src/models/registry.py`, `scripts/check_baselines.py`, all checks pass): `DnCNN` (blind residual CNN), `FFDNetLike` (non-blind: the conditioning vector is broadcast to noise-level maps, concatenated with the input and processed on a 2x pixel-unshuffled image), `SwinIRLite` (blind, window attention with shifted windows, residual Swin blocks, global residual). All predict a residual and start as the identity, like the main model. `build_any(arch, size, cond_mode, cross_band)` builds any of them from a config (`model.arch`: `reconnet`, `dncnn`, `ffdnet`, `swinir`, `matched_control`); blind models reject a conditioning mode and FFDNet requires one. The training loop now builds models through it.
+- **Sizes (M parameters):** DnCNN 0.57 (standard) / 2.24 (base); FFDNet-like 1.00 / 2.14; SwinIR-lite 0.67 / 1.65; main model 2.69 backbone only, **3.15 full**.
+- **Parameter matching (fairness):** `build_matched_control` widens the plain backbone (width 35, 3.21 M) to within 3% of the full model (3.15 M), separating the effect of FiLM and cross-band attention from simply having more parameters. `build_any(arch, "matched", ...)` widens DnCNN (3.16 M), FFDNet-like (3.16 M) and SwinIR-lite (3.09 M) to the same count. Use the matched sizes for the main comparison and report parameter counts in the paper.
+- **Evaluation driver** (`src/eval/evaluate.py`, `scripts/evaluate_run.py`, `scripts/check_eval_driver.py`, all checks pass): loads a checkpoint (`best.pt` stores config, scale, weights), builds the fixed test noise per tile, noise type and SNR, predicts full tiles, scores by region and per ship, writes to a results database. Skips conditions already recorded, so an interrupted evaluation resumes; `--offsets` runs the E4 SNR-mismatch experiment as separate runs named `<run>_offset<+x>dB` (blind models ignore offsets); optional small ship crops for figures.
+- **Strongest check:** an identity-at-init FFDNet-style model sent through the whole driver reproduces the classical identity baseline: 848 values compared, worst difference 7.3e-7 dB (PSNR), 2.5e-9 (SSIM), 3.8e-6 degrees (SAM); the 336 per-ship values agree to 3e-9. So checkpoint loading, conditioning, tile prediction, metrics and storage are consistent end to end.
+- **All five architectures train** for one epoch through the loop and their `best.pt` reloads (tiny sizes, CPU).
+- **CPU step times** (batch 2, 64x64, base size): DnCNN 1.6 s, FFDNet-like 0.5 s, SwinIR-lite 3.3 s; SwinIR is the slowest baseline and will dominate Kaggle time for that comparison.
+- **Still open:** BM3D reference on a subset of tiles; GPU timing (pilot); training hyper-parameters for the baselines ("comparable tuning per baseline" in the protocol still needs a concrete budget); how many seeds the baselines get.
 
 ---
 
 ## Next steps
 
-1. **Baseline models** — FFDNet-style (noise-map input), DnCNN, SwinIR, so every ablation row has a comparator; BM3D as a CPU reference on a subset of tiles. Also a **parameter-matched control** for the full model (it has +17% parameters over the backbone). Needs PyTorch (installed, CPU).
-2. **Evaluation driver** — a script that loads a checkpoint, builds the fixed test noise for the fold's test tiles (three noise types, nine SNR levels), predicts full tiles with `predict_tile`, scores them with `src/eval` and writes a results database. Also E4 (SNR mismatch via `tile_condition(offset_db=...)`).
-3. **Kaggle setup** — package the Dataset (see the upload list in this conversation), decide how code reaches Kaggle (GitHub clone needs the auth question resolved, or a second small Dataset), run one **pilot** (medium model, one fold) to measure time per epoch and convergence, then fix model size, epochs, learning rate and loss weights in the configs and mark `configs/protocol.json` complete.
-4. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) split across the three accounts, using unique run names and per-person results databases.
+1. **BM3D reference** (optional, CPU) on a subset of tiles; needs `pip install bm3d` and is too slow for all conditions.
+2. **Kaggle setup** — package the Dataset (see the upload list in this conversation), decide how code reaches Kaggle (GitHub clone needs the auth question resolved, or a second small Dataset), run one **pilot** (medium model, one fold) to measure time per epoch and convergence, then fix model size, epochs, learning rate and loss weights in the configs and mark `configs/protocol.json` complete.
+3. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) split across the three accounts, using unique run names and per-person results databases. Use `scripts/train.py` then `scripts/evaluate_run.py` per run.
 
 ## Open questions / things to verify later
 - Tile overlap policy: overlapping tiles are kept in the same split (implemented). Whether to additionally mask out the overlapping strips is open; the `rotterdam` overlaps are small (7% and 14%), the `suez1`/`suez2` overlap is nearly total. Note that within a split, duplicated content between `suez1` and `suez2` is still counted twice in that split's statistics.

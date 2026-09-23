@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 from ..data.dataset import PatchDataset
 from ..losses.recon import ReconLoss
-from ..models.nafnet import build_model
+from ..models.registry import build_any
 
 
 def _subset(ds: PatchDataset, n, seed):
@@ -44,7 +44,7 @@ def build_run(cfg: dict):
                                     ship_patch_repeat=d.get("ship_patch_repeat", 1), **common),
                        d.get("max_train_patches"), cfg["seed"])
     val_ds = _subset(PatchDataset(tiles=fold["val"], mode="val", **common), d.get("max_val_patches"), cfg["seed"])
-    model = build_model(m["size"], m["cond_mode"], m["cross_band"])
+    model = build_any(m.get("arch", "reconnet"), m["size"], m["cond_mode"], m.get("cross_band", False))
     return train_ds, val_ds, model
 
 
