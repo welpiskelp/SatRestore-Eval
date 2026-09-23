@@ -1,0 +1,13 @@
+{
+  "id": "abhinavp10/satrestore-train-full-fold0",
+  "title": "satrestore-train-full-fold0",
+  "code_file": "train_full.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["abhinavp10/s2ships-processed"],
+  "competition_sources": [],
+  "kernel_sources": []
+}
