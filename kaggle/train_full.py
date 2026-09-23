@@ -50,6 +50,10 @@ def main():
         shutil.copy(dataset_dir / name, processed / name)
     shutil.copy(dataset_dir / "reference.sqlite", REPO_DIR / "db" / "reference.sqlite")
 
+    raw_dir = REPO_DIR / "data" / "S2-SHIPS" / "S2SHIPS"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(dataset_dir / "coco-s2ships.json", raw_dir / "coco-s2ships.json")
+
     tiles_src = dataset_dir / "tiles"
     if not tiles_src.exists():
         import zipfile
