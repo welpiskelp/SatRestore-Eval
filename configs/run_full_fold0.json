@@ -6,7 +6,7 @@
   "device": "auto",
   "amp": true,
   "num_workers": 3,
-  "_status": "PROVISIONAL: model size, epochs, learning rate and loss weights are placeholders until a pilot run on Kaggle measures speed and convergence; loss weights are swept in ablation A7.",
+  "max_hours": 8.5,
   "model": {"size": "medium", "cond_mode": "sigma_snr", "cross_band": true},
   "data": {
     "processed_dir": "data/processed",

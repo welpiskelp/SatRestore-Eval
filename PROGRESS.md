@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation (reworded from "Realistic Noise", see step 15)
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-23
 
 ---
 
@@ -19,9 +19,10 @@
 | 4b. Frozen protocol, statistics utilities, ship contrast-to-noise | DONE (committed and pushed); see step 15 |
 | 4c. Evaluation harness (metrics, regions, per-ship metrics, results DBs, classical baselines) | DONE (committed and pushed); see step 17 |
 | 5a. Dataset loader, model (NAFNet + FiLM + cross-band attention), loss, resumable training loop, tile prediction | DONE locally on CPU (committed and pushed); see step 18 |
-| 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR-lite), parameter-matched controls, evaluation driver | DONE locally on CPU (not yet committed); see step 19. BM3D reference still to do |
-| 6. Training / experiments / ablations | NOT STARTED |
-| 7. Kaggle GPU setup + 3-person split | NOT STARTED (deferred until training code exists) |
+| 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR-lite), parameter-matched controls, evaluation driver | DONE locally on CPU (committed and pushed); see step 19. BM3D reference still to do |
+| 6. Kaggle GPU setup, dataset upload, pilot run | DONE; see step 20. `run_full_fold0.json` is locked |
+| 7. Training / experiments / ablations | NOT STARTED |
+| 8. 3-person split for the full experiment matrix | NOT STARTED |
 
 ---
 
@@ -207,15 +208,24 @@ PyTorch 2.14 CPU build installed in the venv (not pinned in `requirements.txt`; 
 - **Strongest check:** an identity-at-init FFDNet-style model sent through the whole driver reproduces the classical identity baseline: 848 values compared, worst difference 7.3e-7 dB (PSNR), 2.5e-9 (SSIM), 3.8e-6 degrees (SAM); the 336 per-ship values agree to 3e-9. So checkpoint loading, conditioning, tile prediction, metrics and storage are consistent end to end.
 - **All five architectures train** for one epoch through the loop and their `best.pt` reloads (tiny sizes, CPU).
 - **CPU step times** (batch 2, 64x64, base size): DnCNN 1.6 s, FFDNet-like 0.5 s, SwinIR-lite 3.3 s; SwinIR is the slowest baseline and will dominate Kaggle time for that comparison.
-- **Still open:** BM3D reference on a subset of tiles; GPU timing (pilot); training hyper-parameters for the baselines ("comparable tuning per baseline" in the protocol still needs a concrete budget); how many seeds the baselines get.
+- **Still open:** BM3D reference on a subset of tiles; training hyper-parameters for the baselines ("comparable tuning per baseline" in the protocol still needs a concrete budget); how many seeds the baselines get.
+
+### 20. Kaggle GPU setup and pilot run (2026-09-23)
+- **Dataset uploaded:** private Kaggle Dataset `abhinavp10/s2ships-processed` (666 MB: `data/processed/` tiles/patch index/signal stats, plus `db/reference.sqlite`), uploaded from a temporary Kaggle account/API token the user supplied for this session.
+- **Code delivery:** a Kaggle script kernel clones `https://github.com/welpiskelp/SatRestore-Eval` fresh on each run rather than baking code into a kernel snapshot, so it always runs the latest committed pipeline.
+- **Kernel:** `abhinavp10/satrestore-pilot` (script, GPU enabled, internet enabled). Two bugs found and fixed while getting it running: (1) Kaggle auto-extracts an uploaded zip, so the kernel must not try to unzip `tiles.zip` again — it now symlinks the already-extracted `tiles/` folder; (2) the dataset is mounted one level deeper than `/kaggle/input/<slug>/` (under an extra `datasets/` folder) — the kernel now finds it by walking `/kaggle/input` for `patch_index.csv` instead of assuming a fixed path.
+- **Pilot run:** medium model, fold 0, 3 epochs, single T4 (the session had 2 GPUs available but the code is single-GPU). Loss decreased every epoch with no instability: val L1 0.0278 → 0.0177 → 0.0169. Steady-state epoch time 72–73 s (first epoch 87 s, includes warmup).
+- **`configs/run_full_fold0.json` locked:** removed the `PROVISIONAL` status; added `max_hours: 8.5` as a safety stop (resumable via `last.pt`). At 73 s/epoch, 100 epochs ≈ 2 hours on one T4, well inside Kaggle's 9-hour session cap.
+- **Not yet done:** the loss-weight sweep (A7) and per-baseline tuning budget stay open; the full training run for `run_full_fold0.json` itself has not been launched yet (the pilot was only 3 epochs).
 
 ---
 
 ## Next steps
 
 1. **BM3D reference** (optional, CPU) on a subset of tiles; needs `pip install bm3d` and is too slow for all conditions.
-2. **Kaggle setup** — package the Dataset (see the upload list in this conversation), decide how code reaches Kaggle (GitHub clone needs the auth question resolved, or a second small Dataset), run one **pilot** (medium model, one fold) to measure time per epoch and convergence, then fix model size, epochs, learning rate and loss weights in the configs and mark `configs/protocol.json` complete.
+2. **Launch the full fold-0 training run** on Kaggle using the now-locked `configs/run_full_fold0.json` (~2 hours on one T4).
 3. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) split across the three accounts, using unique run names and per-person results databases. Use `scripts/train.py` then `scripts/evaluate_run.py` per run.
+4. The Kaggle account/token used for the dataset upload and pilot is temporary (user's words) — decide before the full experiment matrix whether results need to move to a permanent account.
 
 ## Open questions / things to verify later
 - Tile overlap policy: overlapping tiles are kept in the same split (implemented). Whether to additionally mask out the overlapping strips is open; the `rotterdam` overlaps are small (7% and 14%), the `suez1`/`suez2` overlap is nearly total. Note that within a split, duplicated content between `suez1` and `suez2` is still counted twice in that split's statistics.
