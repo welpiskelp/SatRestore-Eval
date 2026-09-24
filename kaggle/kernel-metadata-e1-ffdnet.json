@@ -1,0 +1,13 @@
+{
+  "id": "abhinavp10/satrestore-e1-ffdnet",
+  "title": "satrestore-e1-ffdnet",
+  "code_file": "train_e1_ffdnet.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["abhinavp10/s2ships-processed"],
+  "competition_sources": [],
+  "kernel_sources": []
+}

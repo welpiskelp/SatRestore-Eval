@@ -1,11 +1,8 @@
-"""Kaggle kernel: clone the repo, stage the dataset, run the real fold-0 training run
-(configs/run_full_fold0.json, locked from the pilot: medium model, 100 epochs, ~2h on one T4),
-then evaluate the best checkpoint on the fixed test noise.
+"""Kaggle kernel: E1 baseline -- the blind variant of the main model (same NAFNet-family
+architecture, cross-band attention on, but cond_mode "none": no SNR conditioning). Trained and
+evaluated the same way as configs/run_full_fold0.json, so it is directly comparable to it.
 
-Dataset input: abhinavp10/s2ships-processed (signal_stats.json, patch_index.csv, tiles_meta.json,
-reference.sqlite, tiles/*.npy -- Kaggle auto-extracts the uploaded tiles.zip into a tiles/ folder,
-so no unzip step is needed here). Code comes from GitHub so the kernel always runs the latest
-committed pipeline rather than a stale copy baked into the kernel.
+See kaggle/train_full.py for the staging steps this mirrors.
 """
 import os
 import shutil
@@ -15,7 +12,7 @@ from pathlib import Path
 REPO_URL = "https://github.com/welpiskelp/SatRestore-Eval.git"
 REPO_DIR = Path("/kaggle/working/SatRestore-Eval")
 INPUT_ROOT = Path("/kaggle/input")
-CONFIG = "configs/run_full_fold0.json"
+CONFIG = "configs/e1_blind_fold0.json"
 
 
 def run(cmd, **kw):
@@ -75,7 +72,7 @@ def main():
     ckpt = REPO_DIR / "runs" / run_name / "best.pt"
     run(["python", "scripts/evaluate_run.py", "--checkpoint", str(ckpt), "--out", "db/results_pilot_full.sqlite"])
 
-    print("full fold-0 run finished; runs/ and db/results_pilot_full.sqlite are under /kaggle/working/SatRestore-Eval", flush=True)
+    print(f"{run_name} finished; runs/ and db/results_pilot_full.sqlite are under /kaggle/working/SatRestore-Eval", flush=True)
 
 
 if __name__ == "__main__":
