@@ -1,0 +1,15 @@
+{
+  "id": "abhinavp10/satrestore-train-fold3",
+  "title": "satrestore-train-fold3",
+  "code_file": "train_fold3.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "abhinavp10/s2ships-processed"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}
