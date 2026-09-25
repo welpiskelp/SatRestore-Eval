@@ -1,8 +1,14 @@
 """Baseline restoration networks for 12-band patches, all with forward(x, cond).
 
-- DnCNN: blind residual CNN (conv-BN-ReLU stack). Ignores cond.
+- DnCNN: blind residual CNN (conv-ReLU stack). Ignores cond.
 - FFDNetLike: non-blind. The conditioning vector is broadcast to per-pixel noise-level maps and
   concatenated with the input, then a plain conv stack runs on a 2x pixel-unshuffled image (as FFDNet).
+
+No BatchNorm: training patches are drawn at independently random SNR per patch (5-40 dB), so a batch
+mixes very different noise levels and BatchNorm's per-batch statistics never settle on anything useful
+-- a known failure mode for variable-noise-level (blind or conditioned) denoising. Both baselines
+originally used it and got stuck within one epoch (val L1 flat at ~0.06 regardless of learning rate);
+removing it is what let them train at all.
 - SwinIRLite: blind Swin-transformer restoration (window attention with shifted windows, residual Swin
   blocks, global residual), a compact version of SwinIR. Ignores cond.
 
@@ -19,7 +25,7 @@ class DnCNN(nn.Module):
         super().__init__()
         layers = [nn.Conv2d(in_ch, width, 3, padding=1), nn.ReLU(inplace=True)]
         for _ in range(depth - 2):
-            layers += [nn.Conv2d(width, width, 3, padding=1, bias=False), nn.BatchNorm2d(width), nn.ReLU(inplace=True)]
+            layers += [nn.Conv2d(width, width, 3, padding=1), nn.ReLU(inplace=True)]
         last = nn.Conv2d(width, in_ch, 3, padding=1)
         nn.init.zeros_(last.weight)
         nn.init.zeros_(last.bias)
@@ -36,7 +42,7 @@ class FFDNetLike(nn.Module):
         self.down, self.up = nn.PixelUnshuffle(2), nn.PixelShuffle(2)
         layers = [nn.Conv2d((in_ch + cond_dim) * 4, width, 3, padding=1), nn.ReLU(inplace=True)]
         for _ in range(depth - 2):
-            layers += [nn.Conv2d(width, width, 3, padding=1, bias=False), nn.BatchNorm2d(width), nn.ReLU(inplace=True)]
+            layers += [nn.Conv2d(width, width, 3, padding=1), nn.ReLU(inplace=True)]
         last = nn.Conv2d(width, in_ch * 4, 3, padding=1)
         nn.init.zeros_(last.weight)
         nn.init.zeros_(last.bias)
