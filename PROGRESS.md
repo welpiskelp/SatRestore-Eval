@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation (reworded from "Realistic Noise", see step 14)
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-09-23 (step 20)
+**Last updated:** 2026-09-25 (step 21)
 
 ---
 
@@ -232,13 +232,60 @@ PyTorch 2.14 CPU build installed in the venv (not pinned in `requirements.txt`; 
 - **Conclusion:** the full pipeline (dataset upload → GPU training → checkpoint recovery → CPU evaluation → results DB) is proven end to end on real data, once, outside the pilot's short 3-epoch smoke run.
 - **Kaggle account note:** the account/token used for the dataset upload and this run is temporary (the user's own description). Decide before the full experiment matrix whether results need to move to a permanent account.
 
+### 21. E1 core comparison: conditioned vs. blind vs. FFDNet baseline, fold 0 (2026-09-24/25)
+The original project doc listing E1–E8/A1–A9 was not available to either the user or this session, so
+the experiment numbering from here on is a reconstruction (see this step and the "Next steps" note
+below) built from what step 15–19 already reference (conditioning ablation, FFDNet/DnCNN/SwinIR
+baselines, region metrics, SNR-mismatch offsets), not a verified match to the original doc.
+
+- **Three fold-0 runs, same training budget** (100 epochs, gaussian noise, lr 4e-4, batch 16):
+  `full_medium_fold0_seed0` (conditioned, done in step 20), `e1_blind_fold0_seed0` (same NAFNet-family
+  architecture with `cond_mode: none` — an A1-style ablation used here as the "blind" arm of H1),
+  `e1_ffdnet_matched_fold0_seed0` (FFDNet-style baseline, widened to match parameter count).
+- **Blind run succeeded**, converged to val L1 0.00857 (vs. the conditioned model's 0.00841). PSNR
+  comparison (region all, gaussian): conditioning wins at the SNR extremes (+0.30 dB at 0 dB SNR,
+  +1.05 dB at 40 dB), roughly tied in the middle (20–30 dB). Small but correctly-directioned effect for
+  H1 on a single fold/seed — not yet statistically testable.
+- **FFDNet baseline got stuck**: val L1 flat at ≈0.0599 from epoch 0 through epoch 99, regardless of
+  learning rate (tried 4e-4, 1e-4, 3e-5 — all landed within 0.001 of each other). Root-caused before
+  assuming it was unfixable:
+  - Suspected `BatchNorm2d` first (`DnCNN`/`FFDNetLike` both used it; training patches are drawn at
+    independently random SNR per patch, 5–40 dB, so a batch mixes noise levels and BatchNorm's running
+    statistics never settle — a documented failure mode for variable-noise denoising). Removed it from
+    both baselines (`src/models/baselines.py`), reverified with `scripts/check_baselines.py` (all
+    checks still pass), reran on Kaggle as `e1_ffdnet_matched_fold0_seed0_v2`.
+  - **BatchNorm removal did not fix it** — v2 landed at the same stuck value (val L1 0.05985–0.05987,
+    all 100 epochs). Ruled out "model not training at all": a 5-step gradient diagnostic on synthetic
+    data (no full data loading, seconds to run) confirmed gradients flow and weights update normally
+    (0 parameters with no gradient, meaningful weight change). So the architecture and optimiser wiring
+    are not broken — this is a real optimisation difficulty of the FFDNet-style architecture (plain
+    downsampled conv stack, no skip connections between stages, unlike the main model's U-Net) on this
+    task, not a code bug.
+  - **Decision (user, 2026-09-25): move on.** The broken run stays in `db/results_pilot_full.sqlite` as
+    `e1_ffdnet_matched_fold0_seed0` (not deleted); `_v2` (BatchNorm-removed, still stuck) was not merged
+    in, since it is not usable data. To report FFDNet in the paper: state that it converged poorly under
+    the shared training budget, and that this was verified to not be an implementation bug (gradients
+    flow, parameters update) rather than silently omitting or fixing the comparison. One cheap follow-up
+    remains open if time allows: retry with a much lower LR (~5e-5) and zero weight decay.
+- **Files**: `configs/e1_blind_fold0.json`, `configs/e1_ffdnet_fold0.json`, `kaggle/train_e1_blind.py`,
+  `kaggle/train_e1_ffdnet.py`, `kaggle/kernel-metadata-e1-blind.json`, `kaggle/kernel-metadata-e1-ffdnet.json`.
+
 ---
 
 ## Next steps
 
-1. **BM3D reference** (optional, CPU) on a subset of tiles; needs `pip install bm3d` and is too slow for all conditions.
-2. **Training + experiments/ablations** (E1–E8, A1–A9 from the project doc) split across the three accounts, using unique run names and per-person results databases. Use `scripts/train.py` then `scripts/evaluate_run.py` per run; `kaggle/train_full.py` is a working template kernel to copy per experiment.
-3. Resolve the temporary-Kaggle-account question (step 20) before spreading the full experiment matrix across accounts.
+1. **More folds/seeds of the main model** (conditioned, `full_medium_fold0_seed0`'s config with
+   `fold` changed) — needed before H1 can be tested statistically; currently only fold 0 exists.
+2. **BM3D reference** (optional, CPU) on a subset of tiles; needs `pip install bm3d` and is too slow for all conditions.
+3. **Remaining training + experiments/ablations** split across the three accounts, using unique run
+   names and per-person results databases. Use `scripts/train.py` then `scripts/evaluate_run.py` per
+   run; `kaggle/train_full.py` (or the `kaggle/train_e1_*.py` variants) are working template kernels to
+   copy per experiment. The E1–E8/A1–A9 numbering used from step 21 onward is this session's
+   reconstruction, not a verified match to the original (unavailable) project doc — confirm against it
+   if it turns up, otherwise treat this numbering as the working definition going forward.
+4. Resolve the temporary-Kaggle-account question (step 20) before spreading the full experiment matrix across accounts.
+5. Optional: retry the FFDNet baseline once more (lower LR, zero weight decay) if a cleaner baseline
+   comparison is wanted before writing the paper.
 
 ## Open questions / things to verify later
 - Tile overlap policy: overlapping tiles are kept in the same split (implemented). Whether to additionally mask out the overlapping strips is open; the `rotterdam` overlaps are small (7% and 14%), the `suez1`/`suez2` overlap is nearly total. Note that within a split, duplicated content between `suez1` and `suez2` is still counted twice in that split's statistics.
