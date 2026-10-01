@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation (reworded from "Realistic Noise", see step 14)
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-09-25 (step 21)
+**Last updated:** 2026-10-01 (step 22)
 
 ---
 
@@ -22,7 +22,9 @@
 | 5. Baseline architectures (FFDNet-style, DnCNN, SwinIR-lite), parameter-matched controls, evaluation driver | DONE locally on CPU (committed and pushed); see step 18. BM3D reference still to do |
 | 6. Kaggle GPU setup, dataset upload, pilot run | DONE; see step 19. `run_full_fold0.json` is locked |
 | 6b. Full fold-0 training run + evaluation (medium model, gaussian noise, 100 epochs) | DONE on Kaggle GPU; see step 20. Results in `db/results_pilot_full.sqlite` |
-| 7. Training / experiments / ablations | NOT STARTED |
+| 6c. Blind-model baseline, all 4 folds trained and evaluated | DONE on Kaggle GPU; see step 22 |
+| 6d. First H1 statistical test (conditioned vs blind, 4 folds x 1 seed) | DONE, preliminary; see step 22 |
+| 7. Training / experiments / ablations (H2, H3, more seeds, other baselines) | NOT STARTED |
 | 8. 3-person split for the full experiment matrix | NOT STARTED |
 
 ---
@@ -269,6 +271,50 @@ baselines, region metrics, SNR-mismatch offsets), not a verified match to the or
     remains open if time allows: retry with a much lower LR (~5e-5) and zero weight decay.
 - **Files**: `configs/e1_blind_fold0.json`, `configs/e1_ffdnet_fold0.json`, `kaggle/train_e1_blind.py`,
   `kaggle/train_e1_ffdnet.py`, `kaggle/kernel-metadata-e1-blind.json`, `kaggle/kernel-metadata-e1-ffdnet.json`.
+
+### 22. All 4 blind-baseline folds, and the first real H1 statistical test (2026-10-01)
+- **Blind-model folds 1, 2, 3 trained on Kaggle** (`e1_blind_fold1_seed0`, `e1_blind_fold2_seed0`,
+  `e1_blind_fold3_seed0`), same kernel template as fold 0, same training budget as the conditioned
+  model. All merged into `db/results_pilot_full.sqlite` (22,896 metric rows each, matching every
+  other run). All 4 folds now exist for both the conditioned model and the blind baseline.
+- **`scripts/compare_arms.py` (new):** pulls per-tile PSNR for both arms at every SNR level, runs
+  the exact Wilcoxon signed-rank test, Holm correction across the 9 SNR levels, and the
+  cluster-robust 95% interval (clusters = the `rotterdam1/2/3` and `suez1/2` overlap groups) — all
+  using the `src/eval/stats.py` code written and checked back in step 14, now run on real data for
+  the first time. Output: `reports/partial_results/06_h1_statistical_result.md`.
+- **Result (preliminary — 4 folds, 1 seed each; the frozen protocol calls for 3 seeds per fold, so
+  this is a first pass, not the final number):**
+
+  | SNR (dB) | Conditioned | Blind | Gap (dB) | 95% CI | Holm p | Real effect? |
+  |---|---|---|---|---|---|---|
+  | 0 | 30.19 | 29.90 | +0.29 | [+0.18, +0.41] | 0.001 | yes |
+  | 5 | 33.34 | 33.09 | +0.25 | [+0.18, +0.32] | 0.000 | yes |
+  | 10 | 35.95 | 35.86 | +0.09 | [+0.03, +0.15] | 0.038 | yes |
+  | 15 | 38.38 | 38.43 | -0.06 | [-0.15, +0.04] | 0.386 | no (too close to call) |
+  | 20 | 40.87 | 41.02 | -0.16 | [-0.27, -0.04] | 0.015 | no, favors blind |
+  | 25 | 43.53 | 43.73 | -0.20 | [-0.31, -0.08] | 0.016 | no, favors blind |
+  | 30 | 46.32 | 46.47 | -0.15 | [-0.30, +0.01] | 0.133 | no (too close to call) |
+  | 35 | 49.01 | 48.94 | +0.07 | [-0.17, +0.30] | 0.669 | no (too close to call) |
+  | 40 | 51.26 | 50.78 | +0.48 | [+0.16, +0.80] | 0.038 | yes |
+
+  4 of 9 SNR levels show a statistically real, Holm-corrected advantage for conditioning: both
+  extremes (0, 5, 10 dB stress noise and 40 dB near-clean) favor conditioning; the middle (15-35 dB)
+  is a mix of "too close to call" and two levels (20, 25 dB) where blind is very slightly ahead.
+  This matches the shape seen earlier on fold 0 alone (conditioning helps most at the extremes), now
+  confirmed as statistically real at those extremes across all 4 folds, not just directionally
+  suggestive on one fold.
+- **Cross-fold consistency check** (`reports/partial_results/04_fold_consistency.png`): at 0 dB,
+  conditioning wins in all 4 folds (+0.18 to +0.41 dB). At 40 dB, conditioning wins in 3 of 4 folds
+  (+0.38 to +1.05 dB) and loses narrowly in fold 2 (-0.16 dB).
+- **Caveat carried forward honestly:** 1 seed per fold is not the frozen protocol's 3 seeds, and 16
+  tiles split into few overlap-group clusters gives this test limited power (per the step 14
+  simulated-coverage check). Treat this as the first real answer to H1, strengthened later by
+  adding 2 more seeds per fold.
+- **Visual evidence generated** (`scripts/make_partial_results.py`, new): full-scale tile
+  reconstruction (clean/noisy/restored, 5 dB and 30 dB, on `brest1`, a fold-0 test tile unseen by
+  that model) and a 4-ship close-up gallery, both in `reports/partial_results/`, alongside refreshed
+  `03_psnr_vs_snr_comparison.png` and `05_results_summary.md`/`05_results_table.csv` built from all
+  4 folds on both arms.
 
 ---
 
