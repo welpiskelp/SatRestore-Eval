@@ -1,8 +1,7 @@
 """H1: does SNR conditioning beat the blind model? Paired per-tile Wilcoxon test + Holm correction
 across SNR levels + cluster-robust CI (clusters = overlap groups), per configs/protocol.json.
-
-PRELIMINARY: protocol specifies 4 folds x 3 seeds per arm; we have 4 folds x 1 seed. This is a first
-real statistical pass, not the final frozen-protocol result (which needs 2 more seeds per fold).
+Seeds are averaged within each (tile, SNR) before pairing, per protocol; each arm may have a
+different number of seeds available for a given fold while blind-arm seeds are still landing.
 
 Run: python scripts/compare_arms.py
 """
@@ -28,21 +27,34 @@ for g in OVERLAP_GROUPS:
 con = sqlite3.connect(DB)
 cur = con.cursor()
 
-# per-tile PSNR, region=all, gaussian noise, every SNR level, for the conditioned and blind arms
+# per-tile PSNR, region=all, gaussian noise, every SNR level, for the conditioned and blind arms,
+# every seed currently in the DB (seeds are averaged within tile below)
 q = """
 select r.name, m.tile, m.snr_db, m.value
 from metrics m join runs r on m.run_id = r.run_id
 where m.metric='psnr' and m.region='all' and m.noise_type='gaussian' and m.band is null
-and (r.name like 'full_medium_fold%_seed0' or r.name like 'e1_blind_fold%_seed0')
+and (r.name like 'full_medium_fold%_seed%' or r.name like 'e1_blind_fold%_seed%')
 """
-cond, blind = {}, {}
+cond_raw, blind_raw = {}, {}
+cond_seeds, blind_seeds = {}, {}
 for name, tile, snr, val in cur.execute(q):
-    d = cond if name.startswith("full_medium") else blind
-    d.setdefault(float(snr), {})[tile] = val
+    arm = "full_medium" if name.startswith("full_medium") else "e1_blind"
+    seed = name.rsplit("_seed", 1)[1]
+    d_raw = cond_raw if arm == "full_medium" else blind_raw
+    d_seeds = cond_seeds if arm == "full_medium" else blind_seeds
+    d_raw.setdefault(float(snr), {}).setdefault(tile, []).append(val)
+    d_seeds.setdefault(tile, set()).add(seed)
+
+# average seeds within (tile, snr) per arm
+cond = {snr: {t: sum(v) / len(v) for t, v in tiles.items()} for snr, tiles in cond_raw.items()}
+blind = {snr: {t: sum(v) / len(v) for t, v in tiles.items()} for snr, tiles in blind_raw.items()}
 
 snr_levels = sorted(cond)
 n_tiles_cond = len({t for d in cond.values() for t in d})
 n_tiles_blind = len({t for d in blind.values() for t in d})
+n_seeds_cond = max((len(s) for s in cond_seeds.values()), default=0)
+seed_counts_cond = sorted({len(s) for s in cond_seeds.values()})
+seed_counts_blind = sorted({len(s) for s in blind_seeds.values()})
 
 rows = []
 for snr in snr_levels:
@@ -70,12 +82,15 @@ for r, p in zip(rows, p_adj):
 # plain-language report
 # ---------------------------------------------------------------------------
 lines = []
-lines.append("# H1 result: does telling the model the noise level help? (PRELIMINARY)")
+status = "FINAL" if seed_counts_cond == [3] and seed_counts_blind == [3] else "IN PROGRESS"
+lines.append(f"# H1 result: does telling the model the noise level help? ({status})")
 lines.append("")
-lines.append(f"4 folds, 1 seed each, {n_tiles_cond} tiles total (every tile tested exactly once, "
-              "in whichever fold it belongs to as a test tile). The project's frozen protocol calls "
-              "for 3 seeds per fold (12 runs per arm); this is a first pass with 1 seed per fold, "
-              "not the final number.")
+lines.append(f"4 folds, {n_tiles_cond} tiles total (every tile tested exactly once, in whichever "
+              "fold it belongs to as a test tile). The conditioned model has "
+              f"{'/'.join(map(str, seed_counts_cond))} seed(s) per fold; the blind model has "
+              f"{'/'.join(map(str, seed_counts_blind))} seed(s) per fold so far (protocol target: "
+              "3 seeds per fold for both). Wherever a fold has more than one seed, its tiles' scores "
+              "are averaged across those seeds before this comparison, per protocol.")
 lines.append("")
 lines.append("Per noise level: average PSNR with conditioning, average PSNR without it, the gap, "
               "a 95% confidence range for that gap (accounting for tiles that share the same scene), "
@@ -93,11 +108,11 @@ for r in rows:
 lines.append("")
 n_sig = sum(r["significant"] for r in rows)
 lines.append(f"**{n_sig} of {len(rows)} noise levels show a statistically real advantage for conditioning "
-             "after correction, at the 95% confidence level, with 1 seed per fold.**")
+             "after correction, at the 95% confidence level.**")
 lines.append("")
-lines.append("Caveat: with only 1 seed per fold and 16 tiles total split into small clusters, this test "
-             "has limited statistical power — a true effect can fail to reach significance here even if "
-             "it is real. The direction (conditioning helps) being consistent across folds, shown "
+lines.append("Caveat: 16 tiles total split into small clusters means this test has limited statistical "
+             "power even at the full seed count — a true effect can fail to reach significance here even "
+             "if it is real. The direction (conditioning helps) being consistent across folds, shown "
              "separately in `04_fold_consistency.png`, is itself supporting evidence beyond this table.")
 
 report = "\n".join(lines)
