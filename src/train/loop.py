@@ -81,7 +81,10 @@ def train(cfg: dict, resume: bool = True) -> dict:
     crit_ship = ReconLoss(scale, lambda_ship=1.0, ship_dilate=lw.get("ship_dilate", 1)).to(device)
 
     workers = cfg.get("num_workers", 0)
-    val_loader = DataLoader(val_ds, batch_size=o["batch_size"], shuffle=False, num_workers=workers)
+    loader_kw = dict(pin_memory=device.type == "cuda")
+    if workers:
+        loader_kw.update(persistent_workers=True, prefetch_factor=cfg.get("prefetch_factor", 2))
+    val_loader = DataLoader(val_ds, batch_size=o["batch_size"], shuffle=False, num_workers=workers, **loader_kw)
     steps_per_epoch = math.ceil(len(train_ds) / o["batch_size"])
     total_steps = steps_per_epoch * o["epochs"]
     opt = torch.optim.AdamW(model.parameters(), lr=o["lr"], weight_decay=o.get("weight_decay", 1e-4))
@@ -109,8 +112,14 @@ def train(cfg: dict, resume: bool = True) -> dict:
         model.train()
         train_ds.set_epoch(epoch)
         gen = torch.Generator().manual_seed(cfg["seed"] * 1000 + epoch)
+        # persistent_workers is left off here: this DataLoader is rebuilt fresh every epoch (its
+        # generator seed is epoch-dependent), so persistent workers would never actually persist
+        # past one epoch anyway -- only pin_memory/prefetch_factor help on the train side.
+        train_loader_kw = dict(pin_memory=device.type == "cuda")
+        if workers:
+            train_loader_kw["prefetch_factor"] = cfg.get("prefetch_factor", 2)
         loader = DataLoader(train_ds, batch_size=o["batch_size"], shuffle=True, generator=gen, num_workers=workers,
-                            drop_last=False, persistent_workers=False)
+                            drop_last=False, persistent_workers=False, **train_loader_kw)
         sums, count = {}, 0
         for step, batch in enumerate(loader):
             batch = _to_device(batch, device)

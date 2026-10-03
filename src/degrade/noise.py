@@ -98,22 +98,32 @@ def _correlated_unit_noise(rng: np.random.Generator, shape, sigma_px) -> np.ndar
 def degrade(clean, power, mean, snr_db, noise_type: str, seed: int, shot_fraction: float = 0.5):
     """clean: (C, H, W) array in DN units. power, mean: (C,) tile statistics for the bands.
     snr_db: scalar (same SNR for every band) or (C,). Returns (noisy float32, params dict).
-    params holds everything needed to log or reproduce the degradation."""
-    params = noise_params(power, mean, snr_db, noise_type, seed, shot_fraction)
-    clean = np.asarray(clean, dtype=np.float64)
-    gain = np.asarray(params["gain"])
-    sigma_read = np.asarray(params["sigma_read"])
-    if clean.ndim != 3 or clean.shape[0] != gain.shape[0]:
-        raise ValueError(f"clean {clean.shape} does not match {gain.shape[0]} bands")
+    params holds everything needed to log or reproduce the degradation.
 
+    gaussian and correlated_gaussian (the two types used during training; poisson_gaussian is
+    eval-only, once per tile, so its cost doesn't matter) compute in float32 rather than float64 --
+    half the memory traffic per training sample for identical output precision, since the result
+    was always cast back to float32 anyway."""
+    params = noise_params(power, mean, snr_db, noise_type, seed, shot_fraction)
+    gain = np.asarray(params["gain"], dtype=np.float64)
     rng = np.random.default_rng(seed)
     chan = (slice(None), None, None)
-    if noise_type == "gaussian":
-        noisy = clean + rng.standard_normal(clean.shape) * sigma_read[chan]
-    elif noise_type == "correlated_gaussian":
-        noisy = clean + _correlated_unit_noise(rng, clean.shape, params["corr_sigma_px"]) * sigma_read[chan]
+    if noise_type == "poisson_gaussian":
+        clean64 = np.asarray(clean, dtype=np.float64)
+        sigma_read = np.asarray(params["sigma_read"], dtype=np.float64)
+        if clean64.ndim != 3 or clean64.shape[0] != gain.shape[0]:
+            raise ValueError(f"clean {clean64.shape} does not match {gain.shape[0]} bands")
+        noisy = gain[chan] * rng.poisson(clean64 / gain[chan]) + rng.standard_normal(clean64.shape) * sigma_read[chan]
     else:
-        noisy = gain[chan] * rng.poisson(clean / gain[chan]) + rng.standard_normal(clean.shape) * sigma_read[chan]
+        clean32 = np.asarray(clean, dtype=np.float32)
+        sigma_read = np.asarray(params["sigma_read"], dtype=np.float32)
+        if clean32.ndim != 3 or clean32.shape[0] != gain.shape[0]:
+            raise ValueError(f"clean {clean32.shape} does not match {gain.shape[0]} bands")
+        if noise_type == "gaussian":
+            noisy = clean32 + rng.standard_normal(clean32.shape, dtype=np.float32) * sigma_read[chan]
+        else:  # correlated_gaussian
+            unit = _correlated_unit_noise(rng, clean32.shape, params["corr_sigma_px"]).astype(np.float32)
+            noisy = clean32 + unit * sigma_read[chan]
     return noisy.astype(np.float32), params
 
 
