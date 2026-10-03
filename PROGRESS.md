@@ -2,7 +2,7 @@
 
 **Project:** SNR-Conditioned, Spectrally Aware, Ship-Preserving Reconstruction of Sentinel-2 Maritime Imagery under Controlled Noise Degradation (reworded from "Realistic Noise", see step 14)
 **Repo:** https://github.com/welpiskelp/SatRestore-Eval (branch `Main`)
-**Last updated:** 2026-10-01 (step 22)
+**Last updated:** 2026-10-03 (step 23)
 
 ---
 
@@ -23,9 +23,14 @@
 | 6. Kaggle GPU setup, dataset upload, pilot run | DONE; see step 19. `run_full_fold0.json` is locked |
 | 6b. Full fold-0 training run + evaluation (medium model, gaussian noise, 100 epochs) | DONE on Kaggle GPU; see step 20. Results in `db/results_pilot_full.sqlite` |
 | 6c. Blind-model baseline, all 4 folds trained and evaluated | DONE on Kaggle GPU; see step 22 |
-| 6d. First H1 statistical test (conditioned vs blind, 4 folds x 1 seed) | DONE, preliminary; see step 22 |
-| 7. Training / experiments / ablations (H2, H3, more seeds, other baselines) | NOT STARTED |
-| 8. 3-person split for the full experiment matrix | NOT STARTED |
+| 6d. H1 statistical test (conditioned vs blind, full protocol: 4 folds x 3 seeds x 2 arms, 24/24 runs) | DONE, FINAL; see step 23 |
+| 6e. BM3D classical baseline (6-tile/5-SNR smoke test) | DONE; see step 23. Matched-protocol (16-tile/9-SNR) version in progress, see step 23 |
+| 6f. H1 across all 3 noise types (gaussian, poisson_gaussian, correlated_gaussian) | DONE; see step 23 |
+| 7. H2 (cross-band attention ablation, 4 folds x 3 seeds) | IN PROGRESS: 5/12 runs merged, 7 more running; see step 23 |
+| 7b. H2 statistical test | NOT STARTED |
+| 7c. H3 (ship-aware loss ablation) | DROPPED 2026-10-03, see `configs/protocol.json` amendments and step 23. Replaced with a downstream ship-detection check (not yet implemented) |
+| 7d. SNR-mismatch screening (E4) | IN PROGRESS (local, CPU); see step 23 |
+| 8. 3-person split for the full experiment matrix | superseded by the friend-run-notebook mechanism, see step 23 |
 
 ---
 
@@ -317,6 +322,91 @@ baselines, region metrics, SNR-mismatch offsets), not a verified match to the or
   4 folds on both arms.
 
 ---
+
+### 23. H1 finalized, BM3D baseline built, H2 scaling, novelty check, H3 dropped (2026-10-03)
+
+Full narrative and literature discussion kept in `reports/research_project_log.md`; this entry is
+the PROGRESS.md-style summary of what actually changed.
+
+- **H1 finalized to the full pre-registered protocol**: all 24 runs (4 folds x 3 seeds, both
+  conditioned and blind arms) trained -- the remaining seed1/seed2 combinations were split across
+  this account and a friend's Kaggle account (`atharvsrivastava05`), using a new generic
+  friend-notebook generator (`kaggle/make_friend_notebook.py`) that produces a self-contained
+  `.ipynb` any Kaggle account can run, then pulled back via `kaggle kernels output <owner>/<slug>`
+  (works for any kernel visible to the authenticated account once made public/shared, not only
+  kernels that account created). `scripts/compare_arms.py` was rewritten mid-way to average all
+  available seeds within (tile, SNR) per arm before pairing, and to tag its own output
+  `IN PROGRESS` vs `FINAL` based on seed counts actually present, after an apparent 20-30 dB
+  "blind wins" reversal at 23/24 runs turned out to be partial-seed noise, not a real effect --
+  it resolved to a genuine null once the 24th run landed. **Final result**
+  (`reports/partial_results/06_h1_statistical_result.md`): conditioning is a statistically real,
+  Holm-corrected win at 0, 5, 10, and 40 dB; 15-35 dB is a genuine null, not a reversal.
+- **H1 re-reported across all three noise types** (`scripts/compare_arms_by_noise.py`,
+  `reports/partial_results/07_h1_by_noise_type.md`): the evaluation harness already evaluates
+  every checkpoint on gaussian, poisson_gaussian, and correlated_gaussian by default (nothing new
+  to run), but the H1 report had only ever looked at gaussian. Re-reporting all three found the
+  pattern does **not** hold uniformly: gaussian is 4/9 SNR levels significant, poisson_gaussian is
+  2/9, and correlated_gaussian is 6/9 with a *different shape* -- blind wins at 0-5 dB and
+  conditioning wins at 15-40 dB (opposite extremes-vs-middle pattern from gaussian). This is a real
+  finding to report plainly, not a result that can be summarized as one universal "extremes help"
+  claim across noise types.
+- **BM3D classical baseline built from scratch**: `bm3d_denoise()` in `src/eval/baselines.py`,
+  `scripts/eval_bm3d.py` driver, `kaggle/run_bm3d_baseline.py` CPU-only kernel. Three rounds of
+  kernel failures (Kaggle's own stdout `.log` capture downloads as 0 bytes -- fixed by teeing to a
+  real file and writing tracebacks to `ERROR.txt`; then a missing `rasterio` dependency; then the
+  actual root cause, `scripts/eval_bm3d.py` never having been pushed to GitHub, so the kernel's
+  `git clone` simply didn't have it) before a clean run. Original result used only 6 tiles x 5 SNR
+  levels, not H1's full 16-tile x 9-SNR protocol, so the BM3D-vs-conditioned-model comparison was
+  not apples-to-apples. `scripts/eval_bm3d.py` was then made resumable (skips conditions already in
+  the output DB, accepts `--time-budget-hours` to stop cleanly between combos) and a new kernel,
+  `kaggle/run_bm3d_matched.py`, started on the full 16x9 grid in tile batches (round 1: rotterdam1/2/3,
+  toulon, brest1, all 9 SNR levels), running on Kaggle CPU in parallel with GPU training kernels.
+  At ~10 min/(tile, SNR) the full grid is roughly 24h of CPU time, split across an estimated 3-4
+  Kaggle sessions; `BATCH_TILES` in the kernel gets trimmed between rounds the same way
+  `train_h2_crossband.py`'s `CONFIGS` list was.
+- **H2 (cross-band attention ablation) scaling in progress**: 11 missing
+  `configs/e2_no_crossband_fold{0-3}_seed{0-2}.json` configs generated, a reusable time-budgeted
+  multi-run Kaggle kernel (`kaggle/train_h2_crossband.py`) built on the same pattern as the H1 seed
+  batches. Round 1 completed 4/11; round 2 (7 more) launched and still running at the time of this
+  entry. 5/12 total H2 runs are merged into `db/results_pilot_full.sqlite`
+  (fold0 all 3 seeds, fold1 seeds 0-1). No statistical test script exists yet for H2 (unlike H1's
+  `compare_arms.py`) -- still an open task.
+- **SNR-mismatch screening started** (`scripts/run_mismatch_screen.py`, protocol's E4): confirmed
+  `src/eval/predict.py:tile_condition`'s `offset_db` mechanism (already built, never exercised with
+  a non-zero offset) works -- one (tile, offset, SNR) condition on CPU takes about 5 minutes, so a
+  full grid across every fold/tile/offset/SNR/noise-type combination is not CPU-feasible locally.
+  Scoped to a screening pass instead: one test tile per fold, offsets of +/-5 and +/-10 dB, SNR
+  levels 0/20/40, gaussian only (48 conditions, roughly 4h), running locally in the background.
+  Writes to `db/results_mismatch.sqlite`; no analysis script written yet (pending the run finishing).
+- **H3 dropped, replaced with a downstream application check**: logged as a protocol amendment in
+  `configs/protocol.json` (`amendments` array, dated 2026-10-03) per the file's own rule that
+  changes must be logged with a reason, not silently made. Reason: H3's 12 training runs
+  (~27.6 GPU-hours at the ~2.3h/run rate) tested a narrower question (can a loss-function change buy
+  ship fidelity cheaply) than whether restoration helps the stated downstream task at all, and the
+  project already computes per-ship instance metrics (`ship_nrmse`, `contrast_error`) for all 1,053
+  ship polygons without needing H3. Replacement: a frozen/pretrained ship-detector pass (precision/
+  recall/AP) on noisy vs. blind-restored vs. conditioned-restored imagery across SNR, reusing
+  existing checkpoints -- no new training needed, only a detector and an eval script. **Not yet
+  implemented.**
+- **Novelty / contribution discussion** (full text in `reports/research_project_log.md` section 7):
+  a literature search (live web search, not assumption) confirmed the model architecture
+  (NAFNet + FiLM + cross-band attention) is fully precedented, and the learned-vs-BM3D
+  regime-dependent crossover is also precedented (Burger et al. 2012). The dataset (S2-SHIPS) is
+  also pre-existing, not built by this project, so "the dataset is the novelty" was also ruled out
+  when asked directly. Settled framing: the contribution is the *combination* -- this specific
+  statistical rigor (paired Wilcoxon + Holm + cluster-robust CI with seed-averaging, not found
+  combined this way in any comparable paper), applied to this specific domain (Sentinel-2 maritime,
+  ship-instance-level evaluation), to answer these specific pre-registered questions. A legitimate
+  "first rigorous empirical validation of X in domain Y" paper, not an architecture- or
+  phenomenon-novelty paper. Abstract/Intro/Related Work should be written accordingly -- upfront
+  about precedent, not overselling.
+- **Training pipeline optimization identified as a priority, not yet started**: current loop
+  (`src/train/loop.py`) defaults to `num_workers=0`, `persistent_workers=False`; degradation
+  (`src/degrade/noise.py`) upcasts patches to float64 and does per-band FFT work for correlated
+  noise inside the per-sample data path; `num_workers`/`pin_memory`/`persistent_workers`/batch size
+  have not been tuned against the Kaggle T4. This is queued to happen before the next H2 round or
+  any future training, not mid-way through currently-running kernels (to avoid changing the
+  pipeline under a run that's already in flight).
 
 ## Next steps
 

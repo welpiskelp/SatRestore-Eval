@@ -57,8 +57,17 @@
   "hypotheses": {
     "H1": "SNR conditioning beats the blind and FFDNet-style baselines at 0 dB and under a mismatched SNR input (E3, E4).",
     "H2": "The cross-band attention block improves SAM and ERGAS by a larger relative margin than PSNR, on gaussian and on correlated_gaussian noise.",
-    "H3": "The ship-aware loss reduces ship-region error while the global PSNR cost stays below 0.1 dB (pre-specified non-inferiority margin, proposed and open to revision before training)."
+    "H3": "DROPPED 2026-10-03, see amendments. Original text (not pursued): the ship-aware loss reduces ship-region error while the global PSNR cost stays below 0.1 dB (pre-specified non-inferiority margin, proposed and open to revision before training)."
   },
+
+  "amendments": [
+    {
+      "date": "2026-10-03",
+      "change": "H3 (ship-aware loss ablation, 12 planned training runs) dropped and replaced with a downstream application check: does restoration (conditioned vs blind) change ship-detection performance (precision/recall/AP from a frozen/pretrained detector) on noisy vs restored imagery, across SNR.",
+      "reason": "H3 would have cost ~27.6 GPU-hours (12 runs x ~2.3h) on top of H2's remaining runs, for a result (non-inferiority on a loss-function ablation) that is less central to the paper's actual claims than confirming restoration helps the stated downstream task (ship visibility/detection). The project already computes per-ship instance metrics (ship_nrmse, contrast_error) for all 1,053 ship polygons, so ship-region fidelity is not unmeasured even without H3 -- H3 specifically tested whether a *loss-function change* could buy ship fidelity cheaply, which is a narrower engineering question than whether restoration helps ship detection at all.",
+      "status": "downstream ship-detection check not yet implemented; no training needed for it (reuses existing full_medium/e1_blind checkpoints and predictions), only a frozen detector and an eval script."
+    }
+  ],
 
   "known_limitations": [
     "The clean reference is a real image with its own noise (estimated 47-72 dB).",
