@@ -18,10 +18,6 @@ SESSION_BUDGET_HOURS = 8.3
 EST_HOURS_PER_RUN = 2.3
 
 CONFIGS = [
-    "configs/e2_no_crossband_fold0_seed1.json",
-    "configs/e2_no_crossband_fold0_seed2.json",
-    "configs/e2_no_crossband_fold1_seed0.json",
-    "configs/e2_no_crossband_fold1_seed1.json",
     "configs/e2_no_crossband_fold1_seed2.json",
     "configs/e2_no_crossband_fold2_seed0.json",
     "configs/e2_no_crossband_fold2_seed1.json",
