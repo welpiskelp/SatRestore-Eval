@@ -19,9 +19,15 @@ REPO_DIR = Path("/kaggle/working/SatRestore-Eval")
 INPUT_ROOT = Path("/kaggle/input")
 ERROR_FILE = Path("/kaggle/working/ERROR.txt")
 
-# Round 1: first 5 tiles (largest/most ship-relevant first). Trim/replace each round with
-# whatever's still missing from db/results_bm3d_matched.sqlite.
-BATCH_TILES = ["rotterdam1", "rotterdam2", "rotterdam3", "toulon", "brest1"]
+# Round 2: round 1 finished rotterdam1/2/3 + toulon fully but only got 1/9 SNR into brest1
+# before the time budget cut it. brest1 is redone here from scratch under a NEW run name
+# (baseline_bm3d_matched_r2) rather than resuming it, because each Kaggle session's output DB
+# starts empty -- "resuming within one run name" only works within a single session, not across
+# them. Using a fresh run name per round avoids a merge clash with round 1's already-merged
+# partial brest1 row; the final analysis unions every run name starting with
+# "baseline_bm3d_matched". Trim/replace BATCH_TILES each round with whatever's still missing.
+RUN_NAME = "baseline_bm3d_matched_r2"
+BATCH_TILES = ["brest1", "marseille", "panama", "portsmouth", "rome"]
 SNR_LEVELS = ["0", "5", "10", "15", "20", "25", "30", "35", "40"]
 SESSION_BUDGET_HOURS = 8.0
 
@@ -74,7 +80,7 @@ def main():
 
     log_path = Path("/kaggle/working/bm3d_matched_run.log")
     cmd = ["python", "-u", "scripts/eval_bm3d.py", "--out", "db/results_bm3d_matched.sqlite",
-           "--run-name", "baseline_bm3d_matched", "--tiles", *BATCH_TILES, "--snr", *SNR_LEVELS,
+           "--run-name", RUN_NAME, "--tiles", *BATCH_TILES, "--snr", *SNR_LEVELS,
            "--time-budget-hours", str(SESSION_BUDGET_HOURS)]
     with open(log_path, "a", buffering=1) as logf:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
