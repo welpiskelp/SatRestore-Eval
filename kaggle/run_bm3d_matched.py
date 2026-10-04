@@ -19,15 +19,14 @@ REPO_DIR = Path("/kaggle/working/SatRestore-Eval")
 INPUT_ROOT = Path("/kaggle/input")
 ERROR_FILE = Path("/kaggle/working/ERROR.txt")
 
-# Round 2: round 1 finished rotterdam1/2/3 + toulon fully but only got 1/9 SNR into brest1
-# before the time budget cut it. brest1 is redone here from scratch under a NEW run name
-# (baseline_bm3d_matched_r2) rather than resuming it, because each Kaggle session's output DB
-# starts empty -- "resuming within one run name" only works within a single session, not across
-# them. Using a fresh run name per round avoids a merge clash with round 1's already-merged
-# partial brest1 row; the final analysis unions every run name starting with
-# "baseline_bm3d_matched". Trim/replace BATCH_TILES each round with whatever's still missing.
-RUN_NAME = "baseline_bm3d_matched_r2"
-BATCH_TILES = ["brest1", "marseille", "panama", "portsmouth", "rome"]
+# Round 3: round 1 finished rotterdam1/2/3 + toulon; round 2 finished brest1/marseille/panama/
+# portsmouth (ran out of budget before starting rome). 8/16 tiles done so far. Each round uses a
+# fresh run name because a Kaggle session's output DB starts empty every time -- "resuming within
+# one run name" only works within a single session, not across them; the final analysis unions
+# every run name starting with "baseline_bm3d_matched". Trim/replace BATCH_TILES each round with
+# whatever's still missing (currently: rome, southampton, suez1-6, 8 tiles left).
+RUN_NAME = "baseline_bm3d_matched_r3"
+BATCH_TILES = ["rome", "southampton", "suez1", "suez2"]
 SNR_LEVELS = ["0", "5", "10", "15", "20", "25", "30", "35", "40"]
 SESSION_BUDGET_HOURS = 8.0
 

@@ -70,9 +70,9 @@ else:
     lines.append("**No crossover in this SNR range** -- one method wins at every level tested so far.")
 lines.append("")
 lines.append(f"Caveat: only {len(complete_tiles)}/16 tiles so far (more BM3D batches still running); "
-              "this table will be regenerated as more tiles land. These 4 tiles are not a random "
-              "sample -- rotterdam1/2/3 are the overlap-group trio and toulon has the most ships, "
-              "so don't treat this as the final 16-tile answer yet.")
+              "this table will be regenerated as more tiles land. These tiles are not a random "
+              "sample of the 16 -- rotterdam1/2/3 are the overlap-group trio and toulon has the "
+              "most ships -- so don't treat this as the final 16-tile answer yet.")
 
 report = "\n".join(lines)
 (OUT / "11_bm3d_matched_comparison.md").write_text(report, encoding="utf-8")
