@@ -34,6 +34,7 @@ select r.name, m.tile, m.snr_db, m.value
 from metrics m join runs r on m.run_id = r.run_id
 where m.metric='psnr' and m.region='all' and m.noise_type='gaussian' and m.band is null
 and (r.name like 'full_medium_fold%_seed%' or r.name like 'e1_blind_fold%_seed%')
+and r.name not like '%_offset%'
 """
 cond_raw, blind_raw = {}, {}
 cond_seeds, blind_seeds = {}, {}

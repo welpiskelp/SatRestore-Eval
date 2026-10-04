@@ -4,102 +4,102 @@ Comparing `full_medium` (with cross-band attention) vs `e2_no_crossband` (parame
 
 **Power caveat while partial:** with only 8 of 16 tiles currently available for the no-crossband arm, the exact Wilcoxon test's best possible raw p-value is about 0.0078 (all 8 tiles agreeing), which Holm-inflates to about 0.07 across 9 SNR levels -- structurally just above the 0.05 line even for a perfectly consistent effect. Several rows below show large, consistently-signed gaps that are not yet 'significant' for this reason, not because the effect is weak. Re-run once all 16 tiles are in.
 
-## sam / gaussian (PARTIAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=8/16 seeds/tile=[2, 3])
+## sam / gaussian (FINAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=16/16 seeds/tile=[3])
 
 | SNR (dB) | With cross-band | Without | Gap (higher=better, sign-flipped) | 95% range | Holm p | Real effect? |
 |---|---|---|---|---|---|---|
-| 0 | 6.606 | 8.007 | +1.401 | [+0.965, +1.837] | 0.070 | no |
-| 5 | 4.405 | 4.967 | +0.562 | [+0.377, +0.748] | 0.070 | no |
-| 10 | 3.296 | 3.566 | +0.270 | [+0.126, +0.413] | 0.070 | no |
-| 15 | 2.593 | 2.712 | +0.120 | [+0.002, +0.238] | 0.156 | no |
-| 20 | 2.071 | 2.121 | +0.050 | [-0.053, +0.152] | 0.500 | no |
-| 25 | 1.645 | 1.678 | +0.033 | [-0.051, +0.117] | 0.500 | no |
-| 30 | 1.277 | 1.326 | +0.048 | [-0.016, +0.112] | 0.164 | no |
-| 35 | 0.963 | 1.045 | +0.082 | [+0.014, +0.149] | 0.070 | no |
-| 40 | 0.716 | 0.858 | +0.142 | [+0.011, +0.274] | 0.070 | no |
+| 0 | 5.922 | 7.070 | +1.148 | [+0.855, +1.440] | 0.000 | **yes** |
+| 5 | 4.026 | 4.521 | +0.495 | [+0.363, +0.627] | 0.000 | **yes** |
+| 10 | 3.055 | 3.290 | +0.235 | [+0.152, +0.318] | 0.000 | **yes** |
+| 15 | 2.422 | 2.531 | +0.109 | [+0.048, +0.171] | 0.001 | **yes** |
+| 20 | 1.940 | 1.996 | +0.056 | [+0.004, +0.108] | 0.022 | **yes** |
+| 25 | 1.535 | 1.582 | +0.047 | [+0.002, +0.092] | 0.022 | **yes** |
+| 30 | 1.183 | 1.247 | +0.063 | [+0.026, +0.101] | 0.002 | **yes** |
+| 35 | 0.888 | 0.975 | +0.087 | [+0.052, +0.122] | 0.000 | **yes** |
+| 40 | 0.660 | 0.782 | +0.122 | [+0.065, +0.180] | 0.000 | **yes** |
 
-**0 of 9 SNR levels significant for sam/gaussian.**
+**9 of 9 SNR levels significant for sam/gaussian.**
 
-## sam / correlated_gaussian (PARTIAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=8/16 seeds/tile=[2, 3])
-
-| SNR (dB) | With cross-band | Without | Gap (higher=better, sign-flipped) | 95% range | Holm p | Real effect? |
-|---|---|---|---|---|---|---|
-| 0 | 23.922 | 23.548 | -0.374 | [-1.609, +0.861] | 1.000 | no |
-| 5 | 14.826 | 14.575 | -0.252 | [-1.270, +0.767] | 1.000 | no |
-| 10 | 9.006 | 8.947 | -0.058 | [-0.706, +0.590] | 1.000 | no |
-| 15 | 5.626 | 5.641 | +0.015 | [-0.329, +0.359] | 1.000 | no |
-| 20 | 3.756 | 3.792 | +0.035 | [-0.143, +0.214] | 1.000 | no |
-| 25 | 2.685 | 2.742 | +0.057 | [-0.069, +0.182] | 1.000 | no |
-| 30 | 2.007 | 2.083 | +0.076 | [-0.037, +0.188] | 0.164 | no |
-| 35 | 1.498 | 1.580 | +0.082 | [-0.014, +0.177] | 0.070 | no |
-| 40 | 1.089 | 1.180 | +0.091 | [-0.000, +0.182] | 0.070 | no |
-
-**0 of 9 SNR levels significant for sam/correlated_gaussian.**
-
-## ergas / gaussian (PARTIAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=8/16 seeds/tile=[2, 3])
+## sam / correlated_gaussian (FINAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=16/16 seeds/tile=[3])
 
 | SNR (dB) | With cross-band | Without | Gap (higher=better, sign-flipped) | 95% range | Holm p | Real effect? |
 |---|---|---|---|---|---|---|
-| 0 | 12.021 | 13.601 | +1.580 | [+1.139, +2.022] | 0.070 | no |
-| 5 | 8.492 | 9.092 | +0.600 | [+0.478, +0.721] | 0.070 | no |
-| 10 | 6.312 | 6.577 | +0.265 | [+0.160, +0.370] | 0.070 | no |
-| 15 | 4.767 | 4.905 | +0.138 | [+0.014, +0.263] | 0.070 | no |
-| 20 | 3.569 | 3.692 | +0.123 | [-0.018, +0.265] | 0.070 | no |
-| 25 | 2.607 | 2.770 | +0.163 | [+0.039, +0.287] | 0.070 | no |
-| 30 | 1.864 | 2.076 | +0.212 | [+0.118, +0.305] | 0.070 | no |
-| 35 | 1.338 | 1.591 | +0.253 | [+0.169, +0.336] | 0.070 | no |
-| 40 | 1.015 | 1.307 | +0.292 | [+0.197, +0.387] | 0.070 | no |
+| 0 | 22.293 | 21.679 | -0.614 | [-1.122, -0.106] | 0.046 | no, favors no-crossband |
+| 5 | 13.581 | 13.354 | -0.228 | [-0.654, +0.199] | 0.701 | no |
+| 10 | 8.200 | 8.182 | -0.018 | [-0.283, +0.246] | 1.000 | no |
+| 15 | 5.171 | 5.206 | +0.036 | [-0.098, +0.169] | 1.000 | no |
+| 20 | 3.488 | 3.527 | +0.038 | [-0.030, +0.107] | 0.701 | no |
+| 25 | 2.508 | 2.555 | +0.047 | [-0.005, +0.099] | 0.145 | no |
+| 30 | 1.861 | 1.926 | +0.065 | [+0.015, +0.114] | 0.003 | **yes** |
+| 35 | 1.368 | 1.442 | +0.074 | [+0.030, +0.118] | 0.000 | **yes** |
+| 40 | 0.982 | 1.063 | +0.081 | [+0.039, +0.122] | 0.000 | **yes** |
 
-**0 of 9 SNR levels significant for ergas/gaussian.**
+**3 of 9 SNR levels significant for sam/correlated_gaussian.**
 
-## ergas / correlated_gaussian (PARTIAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=8/16 seeds/tile=[2, 3])
+## ergas / gaussian (FINAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=16/16 seeds/tile=[3])
 
 | SNR (dB) | With cross-band | Without | Gap (higher=better, sign-flipped) | 95% range | Holm p | Real effect? |
 |---|---|---|---|---|---|---|
-| 0 | 36.174 | 35.542 | -0.632 | [-1.900, +0.636] | 0.781 | no |
-| 5 | 20.929 | 20.499 | -0.430 | [-1.188, +0.329] | 0.547 | no |
-| 10 | 12.819 | 12.664 | -0.155 | [-0.553, +0.242] | 0.781 | no |
-| 15 | 8.335 | 8.315 | -0.020 | [-0.233, +0.194] | 0.945 | no |
-| 20 | 5.645 | 5.678 | +0.033 | [-0.080, +0.147] | 0.922 | no |
-| 25 | 3.877 | 3.951 | +0.074 | [-0.008, +0.156] | 0.141 | no |
-| 30 | 2.651 | 2.773 | +0.121 | [+0.052, +0.191] | 0.070 | no |
-| 35 | 1.812 | 1.978 | +0.167 | [+0.099, +0.234] | 0.070 | no |
-| 40 | 1.277 | 1.495 | +0.218 | [+0.136, +0.299] | 0.070 | no |
+| 0 | 11.741 | 13.104 | +1.363 | [+1.151, +1.574] | 0.000 | **yes** |
+| 5 | 8.359 | 8.904 | +0.546 | [+0.469, +0.622] | 0.000 | **yes** |
+| 10 | 6.246 | 6.497 | +0.251 | [+0.194, +0.309] | 0.000 | **yes** |
+| 15 | 4.726 | 4.876 | +0.150 | [+0.081, +0.219] | 0.000 | **yes** |
+| 20 | 3.542 | 3.689 | +0.148 | [+0.063, +0.233] | 0.000 | **yes** |
+| 25 | 2.598 | 2.779 | +0.181 | [+0.100, +0.263] | 0.000 | **yes** |
+| 30 | 1.874 | 2.088 | +0.214 | [+0.146, +0.281] | 0.000 | **yes** |
+| 35 | 1.362 | 1.597 | +0.234 | [+0.174, +0.295] | 0.000 | **yes** |
+| 40 | 1.042 | 1.298 | +0.255 | [+0.190, +0.320] | 0.000 | **yes** |
 
-**0 of 9 SNR levels significant for ergas/correlated_gaussian.**
+**9 of 9 SNR levels significant for ergas/gaussian.**
 
-## psnr / gaussian (PARTIAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=8/16 seeds/tile=[2, 3])
+## ergas / correlated_gaussian (FINAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=16/16 seeds/tile=[3])
+
+| SNR (dB) | With cross-band | Without | Gap (higher=better, sign-flipped) | 95% range | Holm p | Real effect? |
+|---|---|---|---|---|---|---|
+| 0 | 35.510 | 34.725 | -0.785 | [-1.340, -0.230] | 0.011 | no, favors no-crossband |
+| 5 | 20.648 | 20.244 | -0.405 | [-0.733, -0.076] | 0.044 | no, favors no-crossband |
+| 10 | 12.697 | 12.585 | -0.113 | [-0.281, +0.056] | 0.187 | no |
+| 15 | 8.270 | 8.287 | +0.017 | [-0.072, +0.106] | 0.669 | no |
+| 20 | 5.616 | 5.675 | +0.058 | [+0.005, +0.112] | 0.044 | **yes** |
+| 25 | 3.871 | 3.959 | +0.088 | [+0.040, +0.137] | 0.000 | **yes** |
+| 30 | 2.653 | 2.777 | +0.124 | [+0.075, +0.174] | 0.000 | **yes** |
+| 35 | 1.816 | 1.972 | +0.156 | [+0.103, +0.209] | 0.000 | **yes** |
+| 40 | 1.283 | 1.476 | +0.193 | [+0.134, +0.253] | 0.000 | **yes** |
+
+**5 of 9 SNR levels significant for ergas/correlated_gaussian.**
+
+## psnr / gaussian (FINAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=16/16 seeds/tile=[3])
 
 | SNR (dB) | With cross-band | Without | Gap (dB) | 95% range | Holm p | Real effect? |
 |---|---|---|---|---|---|---|
-| 0 | 31.674 | 30.526 | +1.148 | [+0.938, +1.357] | 0.070 | no |
-| 5 | 34.833 | 34.138 | +0.695 | [+0.478, +0.912] | 0.070 | no |
-| 10 | 37.487 | 37.044 | +0.443 | [+0.243, +0.642] | 0.070 | no |
-| 15 | 39.930 | 39.631 | +0.300 | [+0.088, +0.512] | 0.070 | no |
-| 20 | 42.411 | 42.097 | +0.314 | [+0.048, +0.580] | 0.070 | no |
-| 25 | 45.077 | 44.553 | +0.524 | [+0.230, +0.817] | 0.070 | no |
-| 30 | 47.899 | 46.987 | +0.912 | [+0.662, +1.163] | 0.070 | no |
-| 35 | 50.670 | 49.223 | +1.448 | [+1.201, +1.694] | 0.070 | no |
-| 40 | 52.984 | 50.892 | +2.092 | [+1.702, +2.481] | 0.070 | no |
+| 0 | 30.238 | 29.189 | +1.049 | [+0.924, +1.174] | 0.000 | **yes** |
+| 5 | 33.349 | 32.699 | +0.649 | [+0.545, +0.754] | 0.000 | **yes** |
+| 10 | 35.960 | 35.547 | +0.414 | [+0.317, +0.510] | 0.000 | **yes** |
+| 15 | 38.387 | 38.091 | +0.296 | [+0.192, +0.400] | 0.000 | **yes** |
+| 20 | 40.848 | 40.515 | +0.333 | [+0.197, +0.468] | 0.000 | **yes** |
+| 25 | 43.468 | 42.938 | +0.530 | [+0.373, +0.687] | 0.000 | **yes** |
+| 30 | 46.220 | 45.358 | +0.862 | [+0.709, +1.015] | 0.000 | **yes** |
+| 35 | 48.907 | 47.628 | +1.279 | [+1.089, +1.468] | 0.000 | **yes** |
+| 40 | 51.187 | 49.418 | +1.769 | [+1.464, +2.075] | 0.000 | **yes** |
 
-**0 of 9 SNR levels significant for psnr/gaussian.**
+**9 of 9 SNR levels significant for psnr/gaussian.**
 
-## psnr / correlated_gaussian (PARTIAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=8/16 seeds/tile=[2, 3])
+## psnr / correlated_gaussian (FINAL: full-model tiles=16/16 seeds/tile=[3], no-crossband tiles=16/16 seeds/tile=[3])
 
 | SNR (dB) | With cross-band | Without | Gap (dB) | 95% range | Holm p | Real effect? |
 |---|---|---|---|---|---|---|
-| 0 | 22.771 | 22.666 | +0.105 | [-0.057, +0.267] | 0.391 | no |
-| 5 | 27.265 | 27.258 | +0.007 | [-0.198, +0.212] | 1.000 | no |
-| 10 | 31.298 | 31.284 | +0.014 | [-0.184, +0.212] | 1.000 | no |
-| 15 | 34.853 | 34.810 | +0.043 | [-0.133, +0.219] | 1.000 | no |
-| 20 | 38.058 | 37.976 | +0.082 | [-0.069, +0.232] | 0.781 | no |
-| 25 | 41.151 | 40.974 | +0.177 | [+0.004, +0.350] | 0.094 | no |
-| 30 | 44.328 | 43.946 | +0.382 | [+0.192, +0.572] | 0.070 | no |
-| 35 | 47.576 | 46.852 | +0.725 | [+0.535, +0.915] | 0.070 | no |
-| 40 | 50.635 | 49.369 | +1.266 | [+0.998, +1.533] | 0.070 | no |
+| 0 | 21.135 | 21.160 | -0.025 | [-0.142, +0.092] | 1.000 | no |
+| 5 | 25.603 | 25.652 | -0.049 | [-0.158, +0.061] | 0.968 | no |
+| 10 | 29.622 | 29.618 | +0.004 | [-0.083, +0.091] | 1.000 | no |
+| 15 | 33.179 | 33.120 | +0.059 | [-0.012, +0.130] | 0.073 | no |
+| 20 | 36.375 | 36.269 | +0.106 | [+0.037, +0.174] | 0.004 | **yes** |
+| 25 | 39.447 | 39.249 | +0.197 | [+0.107, +0.287] | 0.000 | **yes** |
+| 30 | 42.616 | 42.239 | +0.377 | [+0.269, +0.485] | 0.000 | **yes** |
+| 35 | 45.874 | 45.219 | +0.655 | [+0.518, +0.792] | 0.000 | **yes** |
+| 40 | 48.958 | 47.865 | +1.093 | [+0.882, +1.304] | 0.000 | **yes** |
 
-**0 of 9 SNR levels significant for psnr/correlated_gaussian.**
+**5 of 9 SNR levels significant for psnr/correlated_gaussian.**
 
 ## H2 verdict
 
-**PARTIAL -- not all folds/seeds are in yet.** The table above is a progress signal from whatever data currently exists, not the final H2 result. Re-run this script as more of the 12 full-model and 12 no-crossband runs land.
+All 4 folds x 3 seeds present for both arms -- this is the final H2 result. H2 is supported if SAM and/or ERGAS show more/stronger significant SNR levels than PSNR does; it is not supported if PSNR shows an equal or stronger pattern.

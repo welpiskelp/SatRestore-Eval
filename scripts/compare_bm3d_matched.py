@@ -28,8 +28,9 @@ def bm3d_psnr(tile, snr):
 def model_psnr(run_like, tile, snr):
     return main_con.execute(
         "select avg(m.value) from metrics m join runs r on m.run_id=r.run_id "
-        "where r.name like ? and m.tile=? and m.snr_db=? and m.metric='psnr' and m.region='all' "
-        "and m.band is null and m.noise_type='gaussian'", (run_like, tile, snr)).fetchone()[0]
+        "where r.name like ? and r.name not like '%_offset%' and m.tile=? and m.snr_db=? "
+        "and m.metric='psnr' and m.region='all' and m.band is null and m.noise_type='gaussian'",
+        (run_like, tile, snr)).fetchone()[0]
 
 SNR_LEVELS = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0]
 

@@ -39,6 +39,7 @@ def load_arm(cur, noise_type, metric):
     from metrics m join runs r on m.run_id = r.run_id
     where m.metric=? and m.region='all' and m.noise_type=? and m.band is null
     and (r.name like 'full_medium_fold%_seed%' or r.name like 'e2_no_crossband_fold%_seed%')
+    and r.name not like '%_offset%'
     """
     full_raw, nocross_raw = {}, {}
     full_seeds, nocross_seeds = {}, {}
